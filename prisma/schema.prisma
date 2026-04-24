@@ -1,0 +1,109 @@
+// Prisma schema — SQLite local.
+// Rodar: npx prisma migrate dev --name <nome>
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+/// Registro de um disparo de template via Atomos.
+/// Cada envio (sucesso ou falha) gera 1 linha aqui.
+model Disparo {
+  id                 String        @id @default(cuid())
+
+  // Referência ao atendimento original da DevSul
+  atendimentoId      String
+  placa              String
+  modelo             String?
+  valor              Float
+  dataAtendimento    DateTime
+  prestador          String?
+
+  // Destino
+  destinoReal        String        // telefone real do prestador (do DevSul)
+  destinoEfetivo     String        // o que foi usado (pode ser o test phone)
+  testMode           Boolean
+
+  // Atomos
+  templateId         String
+  atomosMessageId    String?
+  atomosSessionId    String?
+
+  // Status
+  ultimoStatus       String        // QUEUED / SENT / DELIVERED / READ / FAILED / ERROR
+  failureReason      String?
+  errorMessage       String?
+  statusAtualizadoEm DateTime?
+
+  // Variáveis efetivamente enviadas (auditoria)
+  vPlaca             String
+  vModelo            String
+  vValor             String
+  vData              String
+
+  // Auditoria completa (log integral do envio)
+  requestPayload     String?       // JSON enviado ao Atomos (body do POST)
+  responseBody       String?       // JSON retornado pelo Atomos
+  httpStatus         Int?          // código HTTP da resposta Atomos
+  statusCheckBody    String?       // JSON da consulta getMessageStatus pós-envio
+  rawAtendimento     String?       // JSON do atendimento bruto vindo da DevSul
+  elapsedMs          Int?          // tempo total do envio em ms
+
+  // Origem
+  origem             String        // "UI" | "CLI" | "CRON"
+
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  eventos            StatusEvento[]
+
+  @@index([atendimentoId])
+  @@index([ultimoStatus])
+  @@index([createdAt])
+}
+
+/// Histórico de mudanças de status de um disparo (timeline QUEUED → SENT → DELIVERED).
+model StatusEvento {
+  id            String    @id @default(cuid())
+  disparoId     String
+  disparo       Disparo   @relation(fields: [disparoId], references: [id], onDelete: Cascade)
+  status        String
+  failureReason String?
+  observadoEm   DateTime  @default(now())
+
+  @@index([disparoId, observadoEm])
+}
+
+/// Registro de auditoria de ações mutadoras na aplicação.
+/// Cada mutação autenticada (disparar, editar config, etc.) gera 1 linha aqui.
+/// Guardado pra compliance e rastreamento de incidentes.
+model AuditLog {
+  id          String    @id @default(cuid())
+
+  // Quem — email do usuário autenticado (null para ações de sistema/cron)
+  userEmail   String?
+  // O quê — ex: "disparo.run", "disparo.send", "config.patch", "historico.refresh"
+  action      String
+  // De onde — IP do cliente (pode vir mascarado)
+  ip          String?
+  userAgent   String?
+
+  // Hash SHA-256 do payload enviado (não guardamos o payload em claro — pode ter dados sensíveis)
+  payloadHash String?
+  // Metadata livre em JSON: { ids: [...], status: 200, etc }
+  metadata    String?   // JSON serializado (SQLite não tem Json nativo)
+
+  // Resultado
+  statusCode  Int?
+  errorMsg    String?
+
+  createdAt   DateTime  @default(now())
+
+  @@index([userEmail, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt])
+}

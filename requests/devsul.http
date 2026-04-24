@@ -1,0 +1,18 @@
+### DevSul — resumo de atendimentos
+### Requer extensão "REST Client" (Huachao Mao) no VS Code/Cursor.
+### NÃO commitar o token. Substitua {{TOKEN}} pelo valor real apenas localmente,
+### ou use um arquivo .env do REST Client (ver docs da extensão).
+
+@host = https://api.lnsoft.com.br
+@token = COLE_AQUI_O_TOKEN_NOVO
+
+### Buscar atendimentos (ajuste datas conforme necessário)
+POST {{host}}/devsul/integracao/atendimentos/resumo
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "DataInicial": "2026-04-01",
+  "DataFinal":   "2026-04-20",
+  "Situacoes":   "1282"
+}

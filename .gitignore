@@ -11,10 +11,29 @@
 *.log
 logs/
 
+# Dados temporários / amostras de API (podem conter dados sensíveis)
+tmp/
+
+# SQLite local — não commita a base com dados reais
+prisma/*.db
+prisma/*.db-journal
+prisma/**/*.db
+prisma/**/*.db-journal
+
+# Config local do Claude Code — pode conter tokens em regras de permissão
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+
+# Arquivos .http podem ter tokens colados — não commitar se editados
+requests/*.local.http
+
 # Dependências / build (cobre os principais runtimes)
 node_modules/
 dist/
 build/
+.next/
+next-env.d.ts.bak
+tsconfig.tsbuildinfo
 __pycache__/
 *.pyc
 venv/

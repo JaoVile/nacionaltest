@@ -1,0 +1,74 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Toda segunda às 06:00 UTC — pega CVEs novos sem esperar PR
+    - cron: '0 6 * * 1'
+
+# Limita permissões dos jobs ao mínimo.
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --ignore-scripts
+      # Falha o pipeline em high/critical. Moderate só avisa (exit 0).
+      - name: npm audit (production, high+)
+        run: npm audit --omit=dev --audit-level=high
+      - name: npm audit (full, informativo)
+        run: npm audit --audit-level=moderate || true
+
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-and-quality
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:javascript-typescript'
+
+  typecheck:
+    name: Typecheck + build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx prisma generate
+      - run: npm run typecheck
+      # Build precisa de vars dummy — não estamos validando runtime aqui.
+      - name: Build (com envs dummy)
+        env:
+          DEVSUL_API_URL: https://example.com
+          DEVSUL_BEARER_TOKEN: dummy
+          ATOMOS_BASE_URL: https://example.com
+          ATOMOS_SEND_ENDPOINT: /send
+          TEST_PHONE_NUMBER: '5511999999999'
+          DATABASE_URL: 'file:./dummy.db'
+          NODE_ENV: production
+        run: npm run build
