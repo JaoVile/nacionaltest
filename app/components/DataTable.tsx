@@ -1,8 +1,6 @@
 'use client';
 
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { AnimatePresence, motion } from 'framer-motion';
-import { useRef } from 'react';
+import { motion } from 'framer-motion';
 
 export interface Column<T> {
   key: string;
@@ -38,36 +36,22 @@ export function DataTable<T>({
   isLoading = false,
   skeletonRows = 8,
   empty,
-  rowHeight = 44,
   maxHeight = '560px',
   stickyHeader = true,
   rowClassName,
 }: Props<T>) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const virtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => containerRef.current,
-    estimateSize: () => rowHeight,
-    overscan: 8,
-  });
-
-  const virtualItems = virtualizer.getVirtualItems();
-  const totalSize = virtualizer.getTotalSize();
-
   if (!isLoading && rows.length === 0 && empty) {
     return <>{empty}</>;
   }
 
   return (
     <div
-      ref={containerRef}
-      className="relative overflow-auto rounded-xl border border-slate-200 dark:border-ivory-200/10 bg-white dark:bg-deep-100"
+      className="relative overflow-auto rounded-xl border border-mist-200 dark:border-ivory-200/10 bg-white dark:bg-deep-100"
       style={{ maxHeight }}
     >
       <table className="w-full text-sm">
         <thead className={stickyHeader ? 'sticky top-0 z-10' : ''}>
-          <tr className="bg-slate-50/90 dark:bg-deep-200/80 backdrop-blur border-b border-slate-200 dark:border-ivory-200/10">
+          <tr className="bg-slate-50/90 dark:bg-deep-200/80 backdrop-blur border-b border-mist-200 dark:border-ivory-200/10">
             {columns.map((col) => (
               <th
                 key={col.key}
@@ -97,52 +81,37 @@ export function DataTable<T>({
             ))}
           </tbody>
         ) : (
-          <tbody style={{ height: totalSize, position: 'relative' }}>
-            <AnimatePresence initial={false}>
-              {virtualItems.map((vr) => {
-                const row = rows[vr.index]!;
-                const id = getRowId(row);
-                const extra = rowClassName?.(row) ?? '';
-                return (
-                  <motion.tr
-                    key={id}
-                    layoutId={id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.22, ease }}
-                    onClick={onRowClick ? () => onRowClick(row) : undefined}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      transform: `translateY(${vr.start}px)`,
-                      height: rowHeight,
-                      display: 'table',
-                      tableLayout: 'fixed',
-                    }}
-                    className={`border-b border-slate-100 dark:border-ivory-200/[0.05]
-                                hover:bg-slate-50 dark:hover:bg-ivory-200/[0.03]
-                                ${onRowClick ? 'cursor-pointer' : ''} ${extra}`}
-                  >
-                    {columns.map((col) => (
-                      <td
-                        key={col.key}
-                        style={col.width ? { width: col.width } : undefined}
-                        className={`px-3 py-2.5
-                                    ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}
-                                    ${col.mono ? 'font-mono' : ''}
-                                    ${col.tabular ? 'tabular-nums' : ''}
-                                    text-slate-700 dark:text-ivory-200`}
-                      >
-                        {col.cell(row, vr.index)}
-                      </td>
-                    ))}
-                  </motion.tr>
-                );
-              })}
-            </AnimatePresence>
+          <tbody>
+            {rows.map((row, idx) => {
+              const id = getRowId(row);
+              const extra = rowClassName?.(row) ?? '';
+              return (
+                <motion.tr
+                  key={id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.18, ease, delay: Math.min(idx * 0.005, 0.12) }}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  className={`border-b border-slate-100 dark:border-ivory-200/[0.05]
+                              transition-colors hover:bg-mist-50 dark:hover:bg-ivory-200/[0.04]
+                              ${onRowClick ? 'cursor-pointer active:bg-mist-100 dark:active:bg-ivory-200/[0.06]' : ''} ${extra}`}
+                >
+                  {columns.map((col) => (
+                    <td
+                      key={col.key}
+                      style={col.width ? { width: col.width } : undefined}
+                      className={`px-3 py-3
+                                  ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}
+                                  ${col.mono ? 'font-mono' : ''}
+                                  ${col.tabular ? 'tabular-nums' : ''}
+                                  text-slate-700 dark:text-ivory-300`}
+                    >
+                      {col.cell(row, idx)}
+                    </td>
+                  ))}
+                </motion.tr>
+              );
+            })}
           </tbody>
         )}
       </table>
