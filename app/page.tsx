@@ -116,7 +116,7 @@ export default async function Dashboard() {
         </FadeIn>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8 sm:mb-10">
         <StatCard
           label="Prontos para cobrar"
           icon={<CheckCircle2 />}
@@ -155,17 +155,17 @@ export default async function Dashboard() {
         />
       </div>
 
-      <FadeIn delay={200} className="mb-10">
+      <FadeIn delay={200} className="mb-8 sm:mb-10">
         <div className="card">
           <ChartDisparos dias={grafico} />
         </div>
       </FadeIn>
 
-      <section className="mb-10">
+      <section className="mb-8 sm:mb-10">
         <FadeIn delay={280}>
-          <h2 className="h-section mb-4">O que você quer fazer?</h2>
+          <h2 className="h-section mb-3 sm:mb-4">O que você quer fazer?</h2>
         </FadeIn>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
           <ActionCard
             variant="primary"
             href="/disparos"

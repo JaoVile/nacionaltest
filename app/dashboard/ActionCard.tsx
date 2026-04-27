@@ -33,21 +33,23 @@ export function ActionCard({ href, icon, title, desc, delay = 0, variant = 'defa
         className={`card-interactive group block relative overflow-hidden h-full
                     ${isPrimary ? 'bg-gradient-to-br from-accent/5 to-transparent border-accent/30 dark:from-accent/10 dark:border-accent/30' : ''}`}
       >
-        <div className={`flex items-start ${isPrimary ? 'gap-4' : 'gap-3'}`}>
+        <div className={`flex items-start ${isPrimary ? 'gap-3 sm:gap-4' : 'gap-2.5 sm:gap-3'}`}>
           <div className={`shrink-0 rounded-lg bg-accent/10 text-accent
                           flex items-center justify-center
                           transition-all duration-300 ease-out-expo
                           group-hover:bg-accent group-hover:text-white group-hover:shadow-glow-accent-soft
                           dark:bg-accent/15 dark:text-accent-soft
                           dark:group-hover:bg-accent-deep dark:group-hover:text-ivory-50
-                          ${isPrimary ? 'w-12 h-12 [&>svg]:w-6 [&>svg]:h-6' : 'w-9 h-9'}`}>
+                          ${isPrimary
+                            ? 'w-10 h-10 sm:w-12 sm:h-12 [&>svg]:w-5 [&>svg]:h-5 sm:[&>svg]:w-6 sm:[&>svg]:h-6'
+                            : 'w-8 h-8 sm:w-9 sm:h-9'}`}>
             {icon}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
               <div className={isPrimary
-                ? 'h-section'
-                : 'text-sm font-semibold text-slate-900 dark:text-ivory-100'}>
+                ? 'font-display font-semibold text-base sm:text-h-section text-slate-900 dark:text-ivory-200 leading-tight'
+                : 'text-sm font-semibold text-slate-900 dark:text-ivory-200 leading-snug'}>
                 {title}
               </div>
               <ArrowRight
@@ -59,7 +61,7 @@ export function ActionCard({ href, icon, title, desc, delay = 0, variant = 'defa
               />
             </div>
             <div className={`mt-1 text-slate-500 dark:text-ivory-400 leading-relaxed
-                             ${isPrimary ? 'text-sm max-w-md' : 'text-xs'}`}>
+                             ${isPrimary ? 'text-xs sm:text-sm max-w-md' : 'text-xs'}`}>
               {desc}
             </div>
           </div>
