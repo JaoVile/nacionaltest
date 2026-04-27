@@ -31,7 +31,8 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   experimental: {
-    serverComponentsExternalPackages: ['pino', 'pino-pretty'],
+    instrumentationHook: true,
+    serverComponentsExternalPackages: ['pino', 'pino-pretty', 'node-cron'],
   },
   async headers() {
     return [

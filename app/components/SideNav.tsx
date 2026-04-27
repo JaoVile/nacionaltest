@@ -73,6 +73,7 @@ export function SideNav({ open, onClose }: Props) {
         <nav className="flex flex-col gap-0.5 flex-1">
           <NavLink href="/" pathname={pathname} onClick={onClose}>Dashboard</NavLink>
           <NavLink href="/disparos" pathname={pathname} onClick={onClose}>Disparos</NavLink>
+          <NavLink href="/agendamento" pathname={pathname} onClick={onClose}>Agendamento</NavLink>
           <NavLink href="/historico" pathname={pathname} onClick={onClose}>Histórico</NavLink>
           <NavLink href="/templates" pathname={pathname} onClick={onClose}>Templates</NavLink>
           <NavLink href="/config" pathname={pathname} onClick={onClose}>Configurações</NavLink>

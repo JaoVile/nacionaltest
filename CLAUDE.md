@@ -220,14 +220,18 @@ nacional/
 │   ├── historico/              # tabela + filtros + drawer + export Excel
 │   ├── config/                 # edição do .env via UI
 │   ├── templates/              # preview + buscar por ID + listar + definir ativo (§8)
+│   ├── agendamento/            # configuração do scheduler embedded (§9)
 │   └── api/
 │       ├── run/route.ts                 # POST — dispara execução do runner
+│       ├── run/status/route.ts          # GET — estado do run em curso (RunStatePill)
 │       ├── disparos/route.ts            # POST (fluxo síncrono antigo)
 │       ├── disparos/stream/route.ts     # SSE com gate de teste + cancelamento (§8)
 │       ├── disparos/[id]/route.ts       # detalhe completo (drawer)
 │       ├── historico/route.ts           # listagem
 │       ├── historico/refresh/route.ts   # reconsulta status Atomos
 │       ├── config/route.ts              # lê/patcha .env
+│       ├── agendamento/route.ts         # GET/PATCH config do scheduler (§9)
+│       ├── agendamento/run-now/route.ts # POST dispara rodada agora (§9)
 │       ├── atomos/templates/route.ts    # proxy listagem templates (tenta 3 paths)
 │       └── atomos/templates/[id]/route.ts # proxy detalhe template por ID
 ├── src/                        # runner CLI e core compartilhado
@@ -355,6 +359,7 @@ Salvaguardas:
 |------|---------|---------------|-----------|
 | Dashboard | `/` | **Premium** (Hero serif, StatCards count-up, chart animado, RunButton). ✅ | ✅ |
 | Disparos | `/disparos` | Paleta `zinc-*` residual. ⏳ | ✅ (preview+cancelar+gate — §8) |
+| Agendamento | `/agendamento` | Nova paleta + animações. ✅ | ✅ (scheduler embedded — §9) |
 | Histórico | `/historico` | Idem. ⏳ | ✅ (drawer click-to-see-all — §8) |
 | Templates | `/templates` | Idem. ⏳ | ✅ (buscar/listar/definir — §8) |
 | Configurações | `/config` | Idem. ⏳ | ✅ |
@@ -438,6 +443,74 @@ Nenhum token/header entra em `requestPayload` — só o body. **Migração aplic
 - Botão **Definir como ativo** — `PATCH /api/config` com `ATOMOS_TEMPLATE_ID`, regrava `.env` e atualiza `process.env` em runtime (sem restart).
 - Botão **Listar todos** (`GET /api/atomos/templates`) — tenta 3 paths; mostra todas as tentativas no JSON de resposta se nenhum der 2xx.
 - **Proxies tentam 3 paths em ordem**: `/chat/v1/template`, `/chat/v1/templates`, `/chat/v1/message/template`. Primeiro 2xx ganha; senão 404 com diagnóstico.
+
+---
+
+## 9. Scheduler embedded (`/agendamento` + cron in-process)
+
+Resolve **RF.06**. UI + scheduler vivem dentro do processo Next.js — usuário não precisa mais rodar `npm run cli:dev` em terminal paralelo.
+
+### Modelo Prisma `Agendamento` (singleton)
+
+Linha única `id='default'`. Campos:
+
+| Campo | Tipo | Default | Notas |
+|-------|------|---------|-------|
+| `ativo` | bool | false | Liga/desliga o cron |
+| `modo` | string | `'massa'` | `'massa'` (tudo do período) ou `'selecionados'` |
+| `diasSemana` | string CSV | `'1,2,3,4,5'` | dias da semana padrão cron (0=dom..6=sab) |
+| `hora` | int | 9 | 0-23 |
+| `minuto` | int | 0 | 0-59 |
+| `placas` | string? | null | JSON array de `atendimentoId` quando `modo='selecionados'` |
+| `ultimaExec` | DateTime? | — | preenchido após cada rodada |
+| `ultimoTotal/Ok/Falha` | int? | — | resumo da última rodada |
+| `ultimoErro` | string? | — | mensagem de erro fatal, se houve |
+
+Migração: `20260427125843_add_agendamento`.
+
+### `lib/scheduler.ts` (singleton via globalThis)
+
+- `aplicarAgendamento()` — lê DB, monta `cronExpr` (`{minuto} {hora} * * {dias}`), valida com `node-cron.validate`, registra. Idempotente: se já está registrado com a mesma expressão, não duplica. Sobrevive ao HMR via `globalThis.__nacionalScheduler`.
+- `desligar()` — para e destrói o task (cleanup).
+- `montarCronExpr(dias, hora, minuto)` — usado também na UI pra preview.
+- `proximaExecucao(dias, hora, minuto, base)` — prediz a próxima ocorrência localmente (sem libs extras), olha 14 dias à frente.
+- `dispararAgora()` — mesma rotina do cron, ignora `ativo`. Usado pelo botão "Disparar agora".
+- `statusAtual()` — `{ ativo, cronExpr }` em memória.
+
+### `instrumentation.ts` (boot do Next.js)
+
+Hook do Next.js que roda 1x quando o servidor sobe (`NEXT_RUNTIME==='nodejs'`). Importa `aplicarAgendamento` e registra o cron a partir da config gravada no DB. Habilitado via `experimental.instrumentationHook: true` no `next.config.mjs`.
+
+### `lib/disparo-runner.ts::executarAgendamento`
+
+Wrapper extraído do flow do `/api/run/route.ts`. Recebe `{ modo, placasIds?, origem }`. Quando `modo='selecionados'`, filtra `mapeaveis` por `atendimentoId`. Persiste cada envio em `Disparo` com `origem='AUTO'`. Retorna resumo `{ total, processados, enviadosOk, falhas, ignorados }`.
+
+### Endpoints
+
+| Rota | Método | O que faz |
+|------|--------|-----------|
+| `/api/agendamento` | GET | Retorna estado completo (config + ultima exec + próxima exec calculada) |
+| `/api/agendamento` | PATCH | Atualiza DB com Zod-validated body, **chama `aplicarAgendamento()`** pra re-registrar o cron |
+| `/api/agendamento/run-now` | POST | Dispara `dispararAgora()` — mesma rotina, sem esperar cron |
+
+### UI `/agendamento`
+
+- Toggle ativo
+- Chips dia da semana (Dom..Sáb) + atalhos "Dias úteis / Todos / Limpar"
+- Inputs hora + minuto
+- Card de modo: "Tudo do período" vs "Só placas selecionadas"
+- Quando `modo='selecionados'`: lista filtrada de atendimentos do período padrão com checkbox por linha
+- Sticky bar inferior: **Salvar** (só ativo se `dirty`) + **Disparar agora** (testa)
+- Cards laterais: próxima execução (formatada como "ter 28/04 às 09:00"), última execução (com ok/falha/erro), explicação "Como funciona"
+- Reusa `AutoRefresh` (3min) pra atualizar próxima/última exec
+
+### Caveats / decisões
+
+- **Singleton in-process:** se em produção rodar múltiplas instâncias do Next, cada uma registra o cron e dispara N vezes. Atual deploy é single-instance — se mudar, precisa migrar pra cron externo ou lock distribuído.
+- **HMR:** em dev, mudanças de código fazem o módulo reload. `globalThis.__nacionalScheduler` preserva o task entre reloads, mas mudanças em `lib/scheduler.ts` resetam. Aceitável.
+- **Timezone:** `proximaExecucao` usa hora local do servidor; UI mostra com fuso `America/Sao_Paulo`. `node-cron` também roda em hora local. Ajustar se hospedar fora do Brasil.
+- **Simultaneidade:** se `dispararAgora()` é chamado enquanto o cron está rodando, ambos executam em paralelo (não há lock). Pode duplicar envios. **Phase 2:** adicionar lock simples por timestamp.
+- O CLI runner (`src/index.ts`) continua existindo — útil pra rodar fora do web (ex: cron do sistema). Mas agora **não é mais o caminho recomendado** pra agendamento; a UI de `/agendamento` cobre o uso normal.
 
 ---
 

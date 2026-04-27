@@ -78,6 +78,31 @@ model StatusEvento {
   @@index([disparoId, observadoEm])
 }
 
+/// Configuração singleton de agendamento automático.
+/// Sempre uma única linha com id='default'.
+/// `modo='massa'` envia tudo do período; `modo='selecionados'` filtra por `placas` (JSON array de atendimentoIds).
+model Agendamento {
+  id          String    @id @default("default")
+  ativo       Boolean   @default(false)
+  modo        String    @default("massa") // "massa" | "selecionados"
+  diasSemana  String    @default("1,2,3,4,5") // CSV 0..6 (0=dom, 6=sab) — formato cron
+  hora        Int       @default(9)
+  minuto      Int       @default(0)
+
+  /// JSON array de atendimentoIds quando modo='selecionados'. Snapshot tirado no save.
+  placas      String?
+
+  /// Última execução do cron (set pelo scheduler).
+  ultimaExec  DateTime?
+  ultimoTotal Int?      // total processado
+  ultimoOk    Int?      // enviados com sucesso
+  ultimoFalha Int?      // falhas
+  ultimoErro  String?   // mensagem de erro fatal, se houve
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
 /// Registro de auditoria de ações mutadoras na aplicação.
 /// Cada mutação autenticada (disparar, editar config, etc.) gera 1 linha aqui.
 /// Guardado pra compliance e rastreamento de incidentes.
