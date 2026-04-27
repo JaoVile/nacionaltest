@@ -103,13 +103,13 @@
     @apply btn bg-accent text-white
            shadow-elev-2 hover:shadow-glow-accent hover:-translate-y-px
            hover:bg-accent-soft
-           dark:bg-accent-deep dark:hover:bg-accent-deepSoft dark:hover:shadow-glow-deep;
+           dark:bg-accent-deep dark:hover:bg-accent-deep-soft dark:hover:shadow-glow-deep;
   }
   .btn-outline {
     @apply btn border border-mist-200 bg-white text-slate-700
            hover:bg-mist-50 hover:border-accent/40 hover:text-accent
-           dark:border-ivory-200/12 dark:bg-deep-100 dark:text-ivory-300
-           dark:hover:bg-deep-50 dark:hover:border-ivory-200/22 dark:hover:text-ivory-200;
+           dark:border-ivory-200/[0.12] dark:bg-deep-100 dark:text-ivory-300
+           dark:hover:bg-deep-50 dark:hover:border-ivory-200/[0.22] dark:hover:text-ivory-200;
   }
   .btn-ghost {
     @apply btn text-slate-600 hover:text-accent hover:bg-mist-50
@@ -133,10 +133,10 @@
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5
            font-mono text-[0.6rem] font-bold uppercase tracking-widest;
   }
-  .badge-success { @apply badge bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/8  dark:text-emerald-300/90 dark:border-emerald-500/20; }
-  .badge-warning { @apply badge bg-amber-100   text-amber-800   border border-amber-200   dark:bg-amber-500/8   dark:text-amber-300/90   dark:border-amber-500/20;  }
-  .badge-danger  { @apply badge bg-rose-100    text-rose-700    border border-rose-200    dark:bg-rose-500/8    dark:text-rose-300/90    dark:border-rose-500/20;   }
-  .badge-info    { @apply badge bg-mist-100    text-blue-700    border border-mist-200    dark:bg-blue-500/8    dark:text-blue-300/90    dark:border-blue-500/20;   }
+  .badge-success { @apply badge bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/[0.08] dark:text-emerald-300/90 dark:border-emerald-500/20; }
+  .badge-warning { @apply badge bg-amber-100   text-amber-800   border border-amber-200   dark:bg-amber-500/[0.08]  dark:text-amber-300/90   dark:border-amber-500/20;  }
+  .badge-danger  { @apply badge bg-rose-100    text-rose-700    border border-rose-200    dark:bg-rose-500/[0.08]   dark:text-rose-300/90    dark:border-rose-500/20;   }
+  .badge-info    { @apply badge bg-mist-100    text-blue-700    border border-mist-200    dark:bg-blue-500/[0.08]   dark:text-blue-300/90    dark:border-blue-500/20;   }
   .badge-neutral { @apply badge bg-slate-100   text-slate-600   border border-slate-200   dark:bg-deep-50       dark:text-ivory-300      dark:border-ivory-200/10;  }
 
   /* Nav — active no light tem hint de azul; dark suaviza o contraste */

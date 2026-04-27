@@ -20,11 +20,11 @@ const config: Config = {
         // Light: branco com subtom azul claro + acentos vivos.
         // Dark : deep blue + marfim suavizado + accent caridoso (trabalho noturno).
         accent: {
-          DEFAULT: '#2563EB', // blue-600 — vivo (light)
-          soft:    '#3B82F6', // blue-500 — hover (light)
-          glow:    '#60A5FA', // blue-400 — glow base
-          deep:    '#3B5BDB', // suavizado (era blue-700) — não machuca olhos no dark
-          deepSoft:'#5571E5', // hover dark
+          DEFAULT:     '#2563EB', // blue-600 — vivo (light)
+          soft:        '#3B82F6', // blue-500 — hover (light)
+          glow:        '#60A5FA', // blue-400 — glow base
+          deep:        '#3B5BDB', // suavizado (era blue-700) — não machuca olhos no dark
+          'deep-soft': '#5571E5', // hover dark
         },
         // Subtom azul claro pra surfaces/hovers no light. Tailwind sky default cobre o resto.
         mist: {
