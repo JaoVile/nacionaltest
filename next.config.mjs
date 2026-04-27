@@ -34,6 +34,21 @@ const nextConfig = {
     instrumentationHook: true,
     serverComponentsExternalPackages: ['pino', 'pino-pretty', 'node-cron'],
   },
+  webpack: (config, { nextRuntime }) => {
+    // Edge runtime não tem 'path', 'fs' etc. node-cron, dotenv e prisma usam.
+    // Alias pra "false" faz Webpack ignorar o módulo no bundle do edge.
+    // Em runtime, instrumentation.ts já tem guard `NEXT_RUNTIME !== 'nodejs'`.
+    if (nextRuntime === 'edge') {
+      config.resolve = config.resolve || {};
+      config.resolve.alias = {
+        ...(config.resolve.alias || {}),
+        'node-cron': false,
+        'dotenv': false,
+        '@prisma/client': false,
+      };
+    }
+    return config;
+  },
   async headers() {
     return [
       {
