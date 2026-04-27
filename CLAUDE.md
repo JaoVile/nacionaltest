@@ -21,7 +21,9 @@ Módulo que consome a API da **DevSul** para buscar atendimentos/cobranças e di
 ## 2. Integração DevSul (origem dos dados)
 
 - **Host:** `api.lnsoft.com.br`
-- **Recurso:** `/devsul/integracao/atendimentos/resumo` (método `POST`)
+- **Recursos usados:**
+  - `POST /devsul/integracao/atendimentos/resumo` — lista de atendimentos (RF.01)
+  - `GET  /devsul/integracao/atendimentos/regionais` — lookup `Regional → CNPJ` (ver §4)
 - **Autenticação:** Bearer Token via env var `DEVSUL_BEARER_TOKEN`
 - **Content-Type:** `application/json`
 
@@ -56,7 +58,7 @@ O projeto usa **duas credenciais separadas** no ÁtomosChat, mais o ID do templa
 |---------|---------|------------|
 | `ATOMOS_BEARER_TOKEN` | Token permanente de autenticação. Prefixo `pn_`. Vai no header `Authorization: Bearer pn_...`. | Criar em **Nacional → Ajustes → Integrações → Integração via API** |
 | `ATOMOS_CHANNEL_ID` | UUID do canal aprovado pela Meta. Identifica o WhatsApp remetente (campo `from` no payload). | Portal Nacional (canal já aprovado) |
-| `ATOMOS_TEMPLATE_ID` | ID do template `notafiscal`. Valor conhecido: `9664d_notafiscal`. | Portal Nacional / Templates |
+| `ATOMOS_TEMPLATE_ID` | ID do template `notafiscal`. Valor conhecido: `6b5df_notafiscal`. | Portal Nacional / Templates |
 
 **Importante:** nenhum valor real vai para arquivos commitados. `.env.example` tem só placeholders.
 
@@ -109,30 +111,43 @@ Ficamos no aguardo e à disposição para qualquer esclarecimento.
 
 ---
 
-## 4. Mapeamento CNPJ por Regional (fonte de verdade)
+## 4. Mapeamento CNPJ por Regional (via API DevSul)
 
-Base: análise de `tmp/devsul_sample.json` (192 atendimentos, janela de 1 dia).
-Existem **9 valores distintos** de `Regional` — 8 reais + 1 vazio. CNPJ é mantido **manual** aqui porque o volume é baixo e a DevSul não entrega o campo.
+**Fonte:** `GET /devsul/integracao/atendimentos/regionais` retorna a lista oficial:
 
-| Regional (valor exato vindo da DevSul)          | Atend. (sample) | CNPJ                    |
-|-------------------------------------------------|-----------------|-------------------------|
-| `MODELO ASSOCIACAO DE PROTECAO VEICULAR`        | 88              | _preencher_             |
-| `AUTOCAR BRASIL - 2024`                         | 43              | _preencher_             |
-| `L2 PROTEÇÃO AUTOMOTIVA`                        | 17              | _preencher_             |
-| `` (string vazia)                               | 12              | — (não dispara)         |
-| `CERTEZA - PROTEÇÃO ASSOCIAÇÃO`                 | 9               | _preencher_             |
-| `RECORD PROTECAO VEICULAR`                      | 9               | _preencher_             |
-| `MODELO APV`                                    | 7               | _preencher_             |
-| `BRAVO PROTECAO VEICULAR`                       | 6               | _preencher_             |
-| `REGIONAL MIGRAÇÃO`                             | 1               | — (não dispara)         |
+```json
+{ "value": [ { "Id": 680, "Nome": "MODELO ASSOCIACAO DE PROTECAO VEICULAR", "DocumentoCliente": "47163807000109" }, ... ] }
+```
 
-**Regras de aplicação (mapper.ts):**
-- Comparação de `Regional` é **literal e case-sensitive** (mesma string que vem do JSON).
-- Regional `""` ou `REGIONAL MIGRAÇÃO` → atendimento é **ignorado** (loga como `skipped: regional_sem_cnpj`).
-- Regional sem entrada na tabela (nova associação aparecer) → **ignora + alerta no log** para não disparar sem CNPJ.
-- `MODELO APV` e `MODELO ASSOCIACAO DE PROTECAO VEICULAR` são entradas separadas até confirmação (podem ou não compartilhar CNPJ).
+Confirmação do probe (2026-04-27, `tmp/devsul_regionais.json`) — 9 regionais, todos com CNPJ:
 
-Arquivo de implementação: `src/data/cnpj-por-regional.ts` (objeto literal — a tabela acima é a fonte de verdade).
+| `Nome` (match exato com `Regional` do atendimento) | CNPJ                  |
+|----------------------------------------------------|-----------------------|
+| `MODELO ASSOCIACAO DE PROTECAO VEICULAR`           | 47.163.807/0001-09    |
+| `MODELO APV`                                       | 47.163.807/0001-09    |
+| `REGIONAL MIGRAÇÃO`                                | 51.850.920/0001-30    |
+| `AUTOCAR BRASIL - 2024`                            | 51.850.920/0001-30    |
+| `L2 PROTEÇÃO AUTOMOTIVA`                           | 51.959.329/0001-15    |
+| `RECORD PROTECAO VEICULAR`                         | 51.197.728/0001-96    |
+| `WR ASSOCIADOS`                                    | 27.732.214/0001-09    |
+| `CERTEZA - PROTEÇÃO ASSOCIAÇÃO`                    | 40.665.810/0001-81    |
+| `BRAVO PROTECAO VEICULAR`                          | 53.920.004/0001-54    |
+
+**Implementação (`src/devsul/regionais.ts`):**
+- `getCnpjPorRegional()` — busca a lista, devolve `Map<Nome, CNPJ formatado>`. Cache em memória com TTL de 10 min; fallback pro cache antigo se a API falhar.
+- `formatCnpj(digits)` — formata `47163807000109` → `47.163.807/0001-09`.
+- Match é **literal e case-sensitive** com o campo `Regional` do atendimento.
+- Sem match → `cnpj` vazio (ainda dispara; UI/log mostra). Atualmente não bloqueia envio.
+
+**Pontos resolvidos pela API:**
+- `MODELO APV` e `MODELO ASSOCIACAO...` **compartilham CNPJ** (`47.163.807/0001-09`).
+- `REGIONAL MIGRAÇÃO` **tem CNPJ** — não precisa mais ser ignorada.
+- Regional `""` (string vazia) continua sem como ser resolvido — segue ignorado.
+
+**Wiring:**
+- `lib/atendimentos.ts::carregarAtendimentos` pré-carrega o map antes do loop e injeta em cada `AtendimentoView`.
+- `src/runner.ts::runOnce` faz o mesmo antes do loop de envios.
+- Probe ad-hoc: `npm run probe:regionais` → grava `tmp/devsul_regionais.json`.
 
 ---
 
@@ -140,13 +155,12 @@ Arquivo de implementação: `src/data/cnpj-por-regional.ts` (objeto literal — 
 
 - **RF.01** — formato do campo `Situacoes` no request DevSul (atualmente string única `"1282"`, parece funcionar).
 - **RF.06** — formato de config de cron: `.env`/`config.yaml` ou interface web?
-- **CNPJ por Regional** — preencher tabela §4. `MODELO APV` vs `MODELO ASSOCIACAO...` — mesma empresa?
 - **API de templates Atomos** — proxy tenta 3 paths (`/chat/v1/template`, `/chat/v1/templates`, `/chat/v1/message/template`). Nenhum confirmado ainda; a busca por ID pode cair em 404 até a Atomos expor endpoint.
 
 ### Decisões já fechadas
 
 - **Stack:** Next.js 14 + React 18 + TypeScript + Prisma + Tailwind. Runner CLI paralelo (`src/index.ts`).
-- **Mapeamento DevSul → template:** ver §3 (7 variáveis, template `notafiscal`, ID `9664d_notafiscal`).
+- **Mapeamento DevSul → template:** ver §3 (7 variáveis, template `notafiscal`, ID `6b5df_notafiscal`).
 - **CNPJ:** lookup local manual (ver §4), não via DevSul.
 - **Auto-conclusão de atendimento ao receber resposta:** nativa do Atomos, não implementar.
 - **Log de processamento (RF.07):** gravado na tabela `Disparo` do Prisma — request, response, http status, timeline e raw DevSul (ver §8).
@@ -224,14 +238,17 @@ nacional/
 │   ├── mapper.ts               # DevSul → parâmetros do template
 │   ├── devsul/
 │   │   ├── client.ts           # POST atendimentos/resumo (RF.01)
+│   │   ├── regionais.ts        # GET atendimentos/regionais → lookup CNPJ (§4)
 │   │   └── types.ts
 │   └── atomos/
 │       ├── client.ts           # POST /chat/v1/message/send (RF.04)
 │       └── types.ts
 ├── scripts/
-│   └── probe-devsul.ts         # ad-hoc → tmp/devsul_sample.json
+│   ├── probe-devsul.ts         # ad-hoc → tmp/devsul_sample.json
+│   └── probe-regionais.ts      # ad-hoc → tmp/devsul_regionais.json (lookup CNPJ)
 └── tmp/
-    └── devsul_sample.json      # sample real (192 atendimentos, usado em §4)
+    ├── devsul_sample.json      # sample real (192 atendimentos)
+    └── devsul_regionais.json   # lookup Regional→CNPJ confirmado
 ```
 
 ### Scripts npm
@@ -244,6 +261,7 @@ nacional/
 | `npm run cli:dev`   | Runner CLI em modo watch (`tsx src/index.ts`) — usa cron se `CRON_SCHEDULE` existir |
 | `npm run cli:run`   | Runner CLI em one-shot (`tsx src/index.ts --once`) |
 | `npm run probe`     | `scripts/probe-devsul.ts` — só consulta DevSul e grava `tmp/devsul_sample.json` |
+| `npm run probe:regionais` | `scripts/probe-regionais.ts` — lista regionais (CNPJ) → `tmp/devsul_regionais.json` |
 | `npm run typecheck` | `tsc --noEmit` |
 
 ### Fluxo de execução (`src/runner.ts`)

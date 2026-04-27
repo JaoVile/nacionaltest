@@ -2,6 +2,7 @@ import { format, subDays } from 'date-fns';
 import { assertAtomosReady, loadConfig } from './config';
 import { logger } from './logger';
 import { fetchAtendimentos } from './devsul/client';
+import { getCnpjPorRegional } from './devsul/regionais';
 import { sendTemplate, getMessageStatus } from './atomos/client';
 import { normalizarAtendimento, toTemplateValues } from './mapper';
 
@@ -30,6 +31,7 @@ export async function runOnce(): Promise<RunSummary> {
   logger.info({ req, testMode: cfg.TEST_MODE }, 'Iniciando rodada de cobrança');
 
   const atendimentos = await fetchAtendimentos(req);
+  const cnpjMap = await getCnpjPorRegional();
   const summary: RunSummary = { total: atendimentos.length, enviados: 0, falhas: 0, ignorados: 0 };
   let tentativas = 0;
 
@@ -44,6 +46,8 @@ export async function runOnce(): Promise<RunSummary> {
       logger.warn({ preview: JSON.stringify(bruto).slice(0, 200) }, 'Atendimento ignorado (campos ausentes no mapeamento)');
       continue;
     }
+
+    if (!norm.cnpj) norm.cnpj = cnpjMap.get(norm.associacao) ?? '';
 
     const destino = cfg.TEST_MODE ? cfg.TEST_PHONE_NUMBER : norm.telefone;
     const values = toTemplateValues(norm);

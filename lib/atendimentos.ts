@@ -1,6 +1,7 @@
 import { format, parseISO, subDays } from 'date-fns';
 import { loadConfig } from '../src/config';
 import { fetchAtendimentos } from '../src/devsul/client';
+import { getCnpjPorRegional } from '../src/devsul/regionais';
 import { normalizarAtendimento, normalizarParcial, type AtendimentoNormalizado } from '../src/mapper';
 
 export interface AtendimentoView {
@@ -59,7 +60,8 @@ export function mascararTelefone(tel: string): string {
   return `•••••••${d}`;
 }
 
-function toView(n: AtendimentoNormalizado): AtendimentoView {
+function toView(n: AtendimentoNormalizado, cnpjMap: Map<string, string>): AtendimentoView {
+  const cnpjResolvido = n.cnpj || cnpjMap.get(n.associacao) || '';
   return {
     id: n.id,
     placa: n.placa,
@@ -72,7 +74,7 @@ function toView(n: AtendimentoNormalizado): AtendimentoView {
     telefoneMask: mascararTelefone(n.telefone),
     prestador: n.prestador ?? '',
     associacao: n.associacao,
-    cnpj: n.cnpj,
+    cnpj: cnpjResolvido,
     protocolo: n.protocolo,
     raw: n.raw as Record<string, unknown>,
     mapeavel: true,
@@ -103,6 +105,8 @@ export async function carregarAtendimentos(opts?: {
     erro = (e as Error).message;
   }
 
+  const cnpjMap = await getCnpjPorRegional();
+
   const mapeaveis: AtendimentoView[] = [];
   const ignorados: AtendimentoIgnorado[] = [];
   let somaValor = 0;
@@ -111,13 +115,14 @@ export async function carregarAtendimentos(opts?: {
   for (const b of brutos) {
     const n = normalizarAtendimento(b);
     if (n) {
-      const v = toView(n);
+      const v = toView(n, cnpjMap);
       mapeaveis.push(v);
       itens.push(v);
       somaValor += n.valor;
     } else {
       const semTel = !b.FornecedorTelefones;
       const parcial = normalizarParcial(b);
+      const cnpjResolvido = parcial.cnpj || cnpjMap.get(parcial.associacao) || '';
       const i: AtendimentoIgnorado = {
         id: parcial.id || String(b.Id ?? b.id ?? 'sem-id'),
         placa: parcial.placa || String(b.Placa ?? ''),
@@ -128,7 +133,7 @@ export async function carregarAtendimentos(opts?: {
         dataISO: parcial.dataAtendimento ? format(parcial.dataAtendimento, 'yyyy-MM-dd') : '',
         prestador: parcial.prestador,
         associacao: parcial.associacao,
-        cnpj: parcial.cnpj,
+        cnpj: cnpjResolvido,
         protocolo: parcial.protocolo,
         motivo: semTel ? 'sem_telefone' : 'outro',
         mapeavel: false,

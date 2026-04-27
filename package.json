@@ -11,6 +11,7 @@
     "cli:run": "tsx src/index.ts --once",
     "cli:dev": "tsx src/index.ts",
     "probe": "tsx scripts/probe-devsul.ts",
+    "probe:regionais": "tsx scripts/probe-regionais.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import type { AtendimentoDevSul } from './devsul/types';
 import type { TemplateValues } from './atomos/types';
+import { formatCnpj } from './devsul/regionais';
 
 /**
  * Mapeia um atendimento da DevSul para as 7 variáveis do template `notafiscal`:
@@ -21,7 +22,7 @@ const PATHS = {
   telefone:   ['FornecedorTelefones', 'Telefone', 'telefone', 'Celular', 'celular'],
   prestador:  ['Fornecedor', 'Prestador', 'prestador', 'NomePrestador'],
   associacao: ['Regional', 'Associacao', 'associacao', 'Cooperativa'],
-  cnpj:       ['CNPJ', 'Cnpj', 'cnpj', 'FornecedorCNPJ', 'CnpjFornecedor'],
+  cnpj:       ['DocumentoCliente', 'CNPJ', 'Cnpj', 'cnpj', 'FornecedorCNPJ', 'CnpjFornecedor'],
   protocolo:  ['Protocolo', 'protocolo'],
 } as const;
 
@@ -48,7 +49,8 @@ export function normalizarAtendimento(item: AtendimentoDevSul): AtendimentoNorma
   const telefone  = sanitizePhone(asString(pickFirst(item, PATHS.telefone)));
   const prestador = asString(pickFirst(item, PATHS.prestador));
   const associacao = asString(pickFirst(item, PATHS.associacao));
-  const cnpj       = asString(pickFirst(item, PATHS.cnpj));
+  const cnpjRaw    = asString(pickFirst(item, PATHS.cnpj));
+  const cnpj       = cnpjRaw ? formatCnpj(cnpjRaw) : '';
   const protocolo  = asString(pickFirst(item, PATHS.protocolo));
 
   const valor = toNumber(valorRaw);
@@ -93,7 +95,8 @@ export function normalizarParcial(item: AtendimentoDevSul): AtendimentoParcial {
   const dataRaw   = pickFirst(item, PATHS.data);
   const prestador = asString(pickFirst(item, PATHS.prestador));
   const associacao = asString(pickFirst(item, PATHS.associacao));
-  const cnpj       = asString(pickFirst(item, PATHS.cnpj));
+  const cnpjRaw    = asString(pickFirst(item, PATHS.cnpj));
+  const cnpj       = cnpjRaw ? formatCnpj(cnpjRaw) : '';
   const protocolo  = asString(pickFirst(item, PATHS.protocolo));
   return {
     id: id || placa,
