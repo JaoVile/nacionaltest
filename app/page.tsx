@@ -195,8 +195,8 @@ export default async function Dashboard() {
 
       <FadeIn delay={460}>
         <div className="card">
-          <h2 className="h-section mb-4">Configuração atual</h2>
-          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+          <h2 className="h-section mb-3 sm:mb-4">Configuração atual</h2>
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 sm:gap-y-4 text-sm">
             <Row label="Número de teste" value={d.cfg.TEST_PHONE_NUMBER} />
             <Row
               label="Quantos dias pra trás olhamos"
@@ -226,12 +226,18 @@ export default async function Dashboard() {
 
 function Row({ label, value, help }: { label: string; value: string; help?: string }) {
   return (
-    <div className="flex justify-between gap-3 items-start">
-      <dt className="text-slate-600 dark:text-ivory-400 shrink-0 flex items-center gap-1.5">
-        {label}
+    <div className="flex flex-col gap-0.5 md:flex-row md:items-start md:justify-between md:gap-3 min-w-0">
+      <dt className="flex items-center gap-1.5 min-w-0
+                     text-[0.65rem] uppercase tracking-wider font-mono font-semibold text-slate-500 dark:text-ivory-500
+                     md:text-sm md:normal-case md:tracking-normal md:font-sans md:font-normal md:text-slate-600 md:dark:text-ivory-400
+                     md:shrink-0">
+        <span className="break-words">{label}</span>
         {help && <InfoHint label={label}>{help}</InfoHint>}
       </dt>
-      <dd className="font-mono text-slate-900 dark:text-ivory-100 text-right break-all min-w-0">{value}</dd>
+      <dd className="font-mono text-sm text-slate-900 dark:text-ivory-200 break-all min-w-0
+                     md:text-right">
+        {value}
+      </dd>
     </div>
   );
 }
