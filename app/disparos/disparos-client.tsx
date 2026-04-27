@@ -406,7 +406,7 @@ export function DisparosClient({
                         <td className="px-3 py-3 truncate max-w-[180px] hidden lg:table-cell text-slate-700 dark:text-ivory-300" title={a.prestador}>
                           {a.prestador}
                         </td>
-                        <td className="px-3 py-3 font-mono text-slate-500 dark:text-ivory-500 hidden sm:table-cell">{a.telefoneMask}</td>
+                        <td className="px-3 py-3 font-mono tabular-nums text-slate-700 dark:text-ivory-300 hidden sm:table-cell" title={`Telefone real do prestador: ${a.telefone}`}>{a.telefone}</td>
                       </motion.tr>
                     );
                   })}
