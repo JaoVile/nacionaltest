@@ -26,6 +26,7 @@ export const metadata: Metadata = {
 };
 
 const themeScript = `(function(){try{var t=localStorage.getItem('theme');if(t==='dark')document.documentElement.classList.add('dark');}catch(e){}})();`;
+const uiScaleScript = `(function(){try{var s=parseFloat(localStorage.getItem('ui-scale'));if(s>=0.7&&s<=1.5)document.documentElement.style.setProperty('--ui-scale',String(s));}catch(e){}})();`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${inter.variable} ${jetbrains.variable} ${fraunces.variable}`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: uiScaleScript }} />
       </head>
       <body>
         <Shell>{children}</Shell>

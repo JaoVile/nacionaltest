@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Escala de UI controlada pelo usuário (UiScaleControl).
+   Default 1 = EXATAMENTE como está hoje. Ajusta html font-size, e como Tailwind
+   usa rem em texto/padding/gap, tudo escala proporcionalmente.
+   Range 0.7 → 1.5 (70% → 150%). Persistido em localStorage. */
+:root { --ui-scale: 1; }
+html { font-size: calc(16px * var(--ui-scale)); }
+
 @keyframes shimmer {
   0%   { transform: translateX(-100%); }
   100% { transform: translateX(200%); }
