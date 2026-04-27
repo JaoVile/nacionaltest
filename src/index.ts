@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import cron from 'node-cron';
 import { loadConfig } from './config';
 import { logger } from './logger';

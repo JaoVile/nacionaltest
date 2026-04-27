@@ -1,4 +1,7 @@
-import 'dotenv/config';
+// dotenv NÃO é importado aqui:
+// - Em Next.js (dev/start), .env é carregado automaticamente pelo runtime
+// - Em CLI/scripts (src/index.ts, scripts/probe-*), `import 'dotenv/config'` é feito no entrypoint
+// Importar aqui quebra o bundling do Next pro edge runtime ('path' não existe lá).
 import { z } from 'zod';
 
 const schema = z.object({
