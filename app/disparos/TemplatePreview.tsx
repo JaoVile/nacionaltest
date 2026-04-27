@@ -89,22 +89,26 @@ export function TemplatePreview({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 20, scale: 0.95 }}
         transition={{ duration: 0.32, ease }}
-        className="fixed bottom-4 left-4 z-50 w-[calc(100vw-2rem)] max-w-[360px] sm:w-[360px]
+        className="fixed bottom-2 left-2 sm:bottom-4 sm:left-4 z-50
+                   w-[calc(100vw-1rem)] sm:w-auto
+                   max-w-[min(420px,calc(100vw-1rem))] sm:max-w-[380px]
                    shadow-elev-3 rounded-2xl overflow-hidden
-                   border border-slate-200 dark:border-ivory-200/10
+                   border border-mist-200 dark:border-ivory-200/10
                    bg-white dark:bg-deep-100"
       >
         <button
-          className="w-full px-4 py-3 flex items-center gap-3 text-left
-                     hover:bg-slate-50 dark:hover:bg-ivory-200/[0.04] transition-colors"
+          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 flex items-center gap-2 sm:gap-3 text-left
+                     hover:bg-mist-50 dark:hover:bg-ivory-200/[0.04] transition-colors"
           onClick={() => setExpandido((v) => !v)}
         >
-          <MessageSquareText size={16} className="shrink-0 text-accent dark:text-accent-soft" />
+          <MessageSquareText className="shrink-0 text-accent dark:text-accent-soft w-4 h-4 sm:w-[18px] sm:h-[18px]" />
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold text-slate-900 dark:text-ivory-100 truncate">
+            <div className="font-semibold text-slate-900 dark:text-ivory-200 truncate"
+                 style={{ fontSize: 'clamp(0.78rem, 1.2vw + 0.55rem, 0.875rem)' }}>
               Enviando agora {current && total ? <span className="font-mono tabular-nums text-slate-500 dark:text-ivory-400">({current} de {total})</span> : ''}
             </div>
-            <div className="text-xs text-slate-500 dark:text-ivory-400 truncate font-mono">
+            <div className="text-slate-500 dark:text-ivory-400 truncate font-mono"
+                 style={{ fontSize: 'clamp(0.65rem, 1vw + 0.45rem, 0.75rem)' }}>
               {placa ?? '—'} → {destinoEfetivo ?? '—'}
               {testMode && <span className="ml-1 text-amber-500">(teste)</span>}
             </div>
@@ -121,13 +125,16 @@ export function TemplatePreview({
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.28, ease }}
-              className="overflow-hidden border-t border-slate-100 dark:border-ivory-200/[0.05]"
+              className="overflow-hidden border-t border-mist-100 dark:border-ivory-200/[0.05]"
             >
-              <div className="p-3 bg-[#e5ddd5] dark:bg-deep-200">
-                <div className="bg-white rounded-xl rounded-tl-sm shadow-sm px-3 py-2 text-[12px] text-[#111] leading-relaxed whitespace-pre-wrap font-sans max-h-64 overflow-y-auto">
+              <div className="p-2.5 sm:p-3 bg-[#e5ddd5] dark:bg-deep-200">
+                <div className="bg-white rounded-xl rounded-tl-sm shadow-sm px-2.5 sm:px-3 py-2 text-[#111] leading-relaxed whitespace-pre-wrap font-sans
+                                max-h-[40vh] sm:max-h-64 overflow-y-auto"
+                     style={{ fontSize: 'clamp(0.72rem, 1.6vw + 0.45rem, 0.8125rem)' }}>
                   {shown}
                   {typing && <span className="inline-block w-[7px] h-[12px] -mb-0.5 ml-0.5 bg-slate-400 animate-pulse-soft align-middle" />}
-                  <div className="text-right text-[9px] text-slate-400 mt-1">
+                  <div className="text-right text-slate-400 mt-1"
+                       style={{ fontSize: 'clamp(0.55rem, 0.8vw + 0.4rem, 0.65rem)' }}>
                     {typing ? 'digitando…' : 'agora ✓✓'}
                   </div>
                 </div>

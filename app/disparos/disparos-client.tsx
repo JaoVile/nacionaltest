@@ -1,6 +1,6 @@
 'use client';
 
-import { useDeferredValue, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Search, Send, Zap } from 'lucide-react';
@@ -80,6 +80,15 @@ export function DisparosClient({
     fase: 'idle', total: 0, current: 0, eventos: [],
   });
   const abortCtrlRef = useRef<AbortController | null>(null);
+  const previewAsideRef = useRef<HTMLElement | null>(null);
+
+  // Auto-scroll do preview pra dentro da viewport em telas pequenas (< md, onde o aside fica embaixo da tabela).
+  useEffect(() => {
+    if (!previewId) return;
+    if (typeof window === 'undefined') return;
+    if (window.innerWidth >= 768) return; // md+: aside já fica ao lado, não precisa rolar
+    previewAsideRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [previewId]);
 
   function buscarPeriodo() {
     const p = new URLSearchParams();
@@ -330,16 +339,16 @@ export function DisparosClient({
 
       <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] lg:grid-cols-[1fr_380px] gap-4">
         <div className="card p-0 overflow-hidden">
-          <div className="max-h-[560px] overflow-auto">
+          <div className="max-h-[60vh] sm:max-h-[560px] overflow-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50/90 dark:bg-deep-200/80 backdrop-blur sticky top-0 z-10 border-b border-slate-200 dark:border-ivory-200/10">
+              <thead className="bg-slate-50/90 dark:bg-deep-200/80 backdrop-blur sticky top-0 z-10 border-b border-mist-200 dark:border-ivory-200/10">
                 <tr>
-                  <th className="px-3 py-2.5 w-8">
-                    <input type="checkbox" checked={todosSelecionados} onChange={toggleTodos} className="accent-accent" />
+                  <th className="px-2 sm:px-3 py-2.5 w-10 sm:w-8">
+                    <input type="checkbox" checked={todosSelecionados} onChange={toggleTodos} className="accent-accent w-4 h-4 cursor-pointer" />
                   </th>
-                  <th className="px-3 py-2.5 text-left text-[0.6rem] font-mono font-semibold uppercase tracking-widest text-slate-500 dark:text-ivory-400">Placa</th>
+                  <th className="px-2 sm:px-3 py-2.5 text-left text-[0.6rem] font-mono font-semibold uppercase tracking-wider sm:tracking-widest text-slate-500 dark:text-ivory-400">Placa</th>
                   <th className="px-3 py-2.5 text-left text-[0.6rem] font-mono font-semibold uppercase tracking-widest text-slate-500 dark:text-ivory-400 hidden sm:table-cell">Modelo</th>
-                  <th className="px-3 py-2.5 text-right text-[0.6rem] font-mono font-semibold uppercase tracking-widest text-slate-500 dark:text-ivory-400">Valor</th>
+                  <th className="px-2 sm:px-3 py-2.5 text-right text-[0.6rem] font-mono font-semibold uppercase tracking-wider sm:tracking-widest text-slate-500 dark:text-ivory-400">Valor</th>
                   <th className="px-3 py-2.5 text-left text-[0.6rem] font-mono font-semibold uppercase tracking-widest text-slate-500 dark:text-ivory-400 hidden md:table-cell">Data</th>
                   <th className="px-3 py-2.5 text-left text-[0.6rem] font-mono font-semibold uppercase tracking-widest text-slate-500 dark:text-ivory-400 hidden lg:table-cell">Prestador</th>
                   <th className="px-3 py-2.5 text-left text-[0.6rem] font-mono font-semibold uppercase tracking-widest text-slate-500 dark:text-ivory-400 hidden sm:table-cell">Telefone</th>
@@ -359,23 +368,26 @@ export function DisparosClient({
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.22, ease }}
                         className={`border-b border-slate-100 dark:border-ivory-200/[0.05]
-                                    cursor-pointer hover:bg-slate-50 dark:hover:bg-ivory-200/[0.03] transition-colors
-                                    ${ativo ? 'bg-accent/5 dark:bg-accent-deep/15' : ''}`}
+                                    cursor-pointer transition-colors active:bg-mist-100 dark:active:bg-ivory-200/[0.06]
+                                    hover:bg-mist-50 dark:hover:bg-ivory-200/[0.04]
+                                    ${ativo ? 'bg-accent/10 dark:bg-accent-deep/20 ring-1 ring-inset ring-accent/30 dark:ring-accent-deep/40' : ''}`}
                         onClick={() => setPreviewId(a.id)}
                       >
-                        <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
-                          <input type="checkbox" checked={selecionado} onChange={() => toggleUm(a.id)} className="accent-accent" />
+                        <td className="px-2 sm:px-3 py-3 sm:py-3" onClick={(e) => e.stopPropagation()}>
+                          <label className="flex items-center justify-center w-full h-full cursor-pointer min-h-[28px]">
+                            <input type="checkbox" checked={selecionado} onChange={() => toggleUm(a.id)} className="accent-accent w-4 h-4 cursor-pointer" />
+                          </label>
                         </td>
-                        <td className="px-3 py-2.5 font-mono font-semibold text-slate-900 dark:text-ivory-100">{a.placa}</td>
-                        <td className="px-3 py-2.5 text-slate-700 dark:text-ivory-200 truncate max-w-[260px] hidden sm:table-cell" title={a.modelo}>
+                        <td className="px-2 sm:px-3 py-3 sm:py-3 font-mono font-semibold text-sm sm:text-sm text-slate-900 dark:text-ivory-200">{a.placa}</td>
+                        <td className="px-3 py-3 text-slate-700 dark:text-ivory-300 truncate max-w-[260px] hidden sm:table-cell" title={a.modelo}>
                           {a.modelo}
                         </td>
-                        <td className="px-3 py-2.5 text-right font-mono tabular-nums text-slate-700 dark:text-ivory-200">{a.valorFmt}</td>
-                        <td className="px-3 py-2.5 font-mono tabular-nums hidden md:table-cell text-slate-700 dark:text-ivory-200">{a.dataFmt}</td>
-                        <td className="px-3 py-2.5 truncate max-w-[180px] hidden lg:table-cell text-slate-700 dark:text-ivory-200" title={a.prestador}>
+                        <td className="px-2 sm:px-3 py-3 sm:py-3 text-right font-mono tabular-nums text-slate-700 dark:text-ivory-300 whitespace-nowrap">{a.valorFmt}</td>
+                        <td className="px-3 py-3 font-mono tabular-nums hidden md:table-cell text-slate-700 dark:text-ivory-300">{a.dataFmt}</td>
+                        <td className="px-3 py-3 truncate max-w-[180px] hidden lg:table-cell text-slate-700 dark:text-ivory-300" title={a.prestador}>
                           {a.prestador}
                         </td>
-                        <td className="px-3 py-2.5 font-mono text-slate-500 dark:text-ivory-500 hidden sm:table-cell">{a.telefoneMask}</td>
+                        <td className="px-3 py-3 font-mono text-slate-500 dark:text-ivory-500 hidden sm:table-cell">{a.telefoneMask}</td>
                       </motion.tr>
                     );
                   })}
@@ -430,7 +442,8 @@ export function DisparosClient({
         </div>
 
         <motion.aside
-          className="card"
+          ref={previewAsideRef}
+          className="card scroll-mt-4"
           initial={{ opacity: 0, x: 8 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, ease }}
@@ -543,8 +556,9 @@ function PreviewMensagem({
           <div className="mt-1 font-mono break-all text-[11px]">{a.id}</div>
         </details>
       </div>
-      <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4 text-sm font-sans whitespace-pre-wrap leading-relaxed
-                      dark:bg-emerald-500/10 dark:border-emerald-500/25 dark:text-emerald-100">
+      <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 sm:p-4 font-sans whitespace-pre-wrap leading-relaxed
+                      dark:bg-emerald-500/10 dark:border-emerald-500/25 dark:text-emerald-100"
+           style={{ fontSize: 'clamp(0.78rem, 1.2vw + 0.55rem, 0.875rem)' }}>
         {linhas.map(substituir).join('\n')}
       </div>
     </div>
