@@ -66,8 +66,8 @@ export function StatCard({
         </div>
       ) : (
         <motion.div
-          className={`mt-2 font-bold tabular-nums tracking-tight leading-none ${toneClass[tone]}`}
-          style={{ fontSize: 'clamp(1.625rem, 2.2vw + 0.75rem, 2.5rem)' }}
+          className={`mt-2 font-bold tabular-nums tracking-tight leading-tight break-words ${toneClass[tone]}`}
+          style={{ fontSize: 'clamp(1.1rem, 3vw + 0.5rem, 2.5rem)' }}
         >
           {display}
         </motion.div>

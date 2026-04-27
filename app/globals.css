@@ -81,13 +81,13 @@
            dark:bg-deep-100/75 dark:border-ivory-200/10;
   }
 
-  /* Stats */
+  /* Stats — tracking menor em mobile pra label não quebrar em 3 linhas */
   .stat-label {
-    @apply text-xs font-mono font-semibold uppercase tracking-widest text-slate-500
-           dark:text-ivory-500;
+    @apply text-[0.7rem] sm:text-xs font-mono font-semibold uppercase
+           tracking-wider sm:tracking-widest text-slate-500 dark:text-ivory-500;
   }
   .stat-value {
-    @apply mt-1 text-3xl font-bold text-slate-900 dark:text-ivory-200
+    @apply mt-1 text-2xl sm:text-3xl font-bold text-slate-900 dark:text-ivory-200
            tabular-nums tracking-tight;
   }
 

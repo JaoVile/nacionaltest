@@ -41,24 +41,24 @@ export function ChartDisparos({ dias }: { dias: DiaStats[] }) {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-4">
         <div className="flex items-center gap-2">
           <h2 className="h-section">Cobranças enviadas</h2>
           <InfoHint label="Cobranças enviadas" side="bottom">
             {GLOSSARIO.disparo}
           </InfoHint>
         </div>
-        <div className="flex items-center gap-1 rounded-full bg-slate-100 dark:bg-deep-50 p-1">
+        <div className="flex items-center gap-0.5 sm:gap-1 rounded-full bg-slate-100 dark:bg-deep-50 p-0.5 sm:p-1">
           {PERIODOS.map(p => (
             <button
               key={p.id}
               type="button"
               onClick={() => setPeriodo(p.id)}
               aria-pressed={periodo === p.id}
-              className={`px-3 py-1 rounded-full text-xs font-mono font-semibold tracking-wide transition-all
+              className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[0.65rem] sm:text-xs font-mono font-semibold tracking-wide transition-all whitespace-nowrap
                           ${periodo === p.id
-                            ? 'bg-white dark:bg-deep-100 text-slate-900 dark:text-ivory-100 shadow-elev-1'
-                            : 'text-slate-500 dark:text-ivory-400 hover:text-slate-900 dark:hover:text-ivory-100'
+                            ? 'bg-white dark:bg-deep-100 text-slate-900 dark:text-ivory-200 shadow-elev-1'
+                            : 'text-slate-500 dark:text-ivory-400 hover:text-slate-900 dark:hover:text-ivory-200'
                           }`}
             >
               {p.label}
