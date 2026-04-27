@@ -11,6 +11,8 @@ import { StatChip, type StatChipTone } from '../components/StatChip';
 import { EmptyState } from '../components/EmptyState';
 import { useFeedbackAction } from '../components/useFeedbackAction';
 import { statusAtomosHumano } from '../dashboard/glossario';
+import { ResumoPainel } from '../components/ResumoPainel';
+import { itemFromDisparo } from '../../lib/resumo-types';
 
 export interface DisparoRow {
   id: string;
@@ -144,8 +146,12 @@ export function HistoricoClient({ items, agregado }: Props) {
       </span> },
   ];
 
+  const itensResumo = useMemo(() => items.map(itemFromDisparo), [items]);
+
   return (
     <>
+      <ResumoPainel items={itensResumo} contexto="historico" />
+
       <div className="grid grid-cols-3 gap-3 mb-3">
         <StatChip label="Todos"     value={items.length}    active={filtro === ''}          onClick={() => setFiltro('')}                                          tone="default" delay={0}   />
         <StatChip label="Entregues" value={totalEntregues}  active={filtro === 'entregues'} onClick={() => setFiltro(filtro === 'entregues' ? '' : 'entregues')} tone="success" delay={50}  />

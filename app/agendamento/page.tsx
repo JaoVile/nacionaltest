@@ -25,9 +25,14 @@ export default async function AgendamentoPage() {
     id: m.id,
     placa: m.placa,
     modelo: m.modelo,
+    valor: m.valor,
     valorFmt: m.valorFmt,
     dataFmt: m.dataFmt,
+    dataISO: m.dataISO,
     prestador: m.prestador,
+    associacao: m.associacao,
+    cnpj: m.cnpj,
+    telefone: m.telefone,
   }));
 
   return (

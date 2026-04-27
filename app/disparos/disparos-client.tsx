@@ -10,6 +10,8 @@ import { TemplatePreview } from './TemplatePreview';
 import { AnimatedModal } from '../components/AnimatedModal';
 import { InfoHint } from '../components/InfoHint';
 import { GLOSSARIO } from '../dashboard/glossario';
+import { ResumoPainel } from '../components/ResumoPainel';
+import { itemFromAtendimento } from '../../lib/resumo-types';
 
 interface Props {
   mapeaveis: AtendimentoView[];
@@ -105,6 +107,11 @@ export function DisparosClient({
       [a.placa, a.modelo, a.prestador, a.id].some((c) => c.toLowerCase().includes(q)),
     );
   }, [buscaDeferred, mapeaveis, manuais]);
+
+  const itensResumo = useMemo(
+    () => [...mapeaveis, ...manuais].map(itemFromAtendimento),
+    [mapeaveis, manuais],
+  );
 
   function adicionarManual(ig: AtendimentoIgnorado, telefone: string) {
     const digits = telefone.replace(/\D/g, '');
@@ -267,6 +274,8 @@ export function DisparosClient({
 
   return (
     <>
+      <ResumoPainel items={itensResumo} contexto="disparos" />
+
       {/* SELETOR DE PERÍODO */}
       <div className="card mb-4">
         <div className="flex flex-wrap items-center gap-3">

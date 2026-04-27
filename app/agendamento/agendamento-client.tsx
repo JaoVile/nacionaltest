@@ -6,14 +6,21 @@ import { motion } from 'framer-motion';
 import { CalendarClock, Clock, Play, Save, Sparkles, ListChecks, Zap } from 'lucide-react';
 import { useFeedbackAction } from '../components/useFeedbackAction';
 import { InfoHint } from '../components/InfoHint';
+import { ResumoPainel } from '../components/ResumoPainel';
+import type { ItemResumo } from '../../lib/resumo-types';
 
 interface AtendimentoOption {
   id: string;
   placa: string;
   modelo: string;
+  valor: number;
   valorFmt: string;
   dataFmt: string;
+  dataISO: string;
   prestador: string;
+  associacao: string;
+  cnpj: string;
+  telefone: string;
 }
 
 interface InitialState {
@@ -97,6 +104,19 @@ export function AgendamentoClient({ initial, atendimentos }: Props) {
     );
   }, [atendimentos, busca]);
 
+  const itensResumo = useMemo<ItemResumo[]>(() => atendimentos.map((a) => ({
+    id: a.id,
+    placa: a.placa,
+    prestador: a.prestador || '',
+    associacao: a.associacao || '',
+    cnpj: a.cnpj || '',
+    valor: a.valor,
+    valorFmt: a.valorFmt,
+    telefone: a.telefone,
+    dataAtendimento: a.dataISO,
+    dataFmt: a.dataFmt,
+  })), [atendimentos]);
+
   const salvar = useFeedbackAction(
     {
       loading: 'Salvando agendamento…',
@@ -142,6 +162,8 @@ export function AgendamentoClient({ initial, atendimentos }: Props) {
   const placasSelecionadasCount = placas.size;
 
   return (
+    <>
+    <ResumoPainel items={itensResumo} contexto="agendamento" />
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* COL ESQUERDA: configuração principal */}
       <div className="lg:col-span-2 space-y-4">
@@ -424,6 +446,7 @@ export function AgendamentoClient({ initial, atendimentos }: Props) {
         </motion.div>
       </div>
     </div>
+    </>
   );
 }
 

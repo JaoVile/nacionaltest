@@ -358,9 +358,9 @@ Salvaguardas:
 | Tela | Caminho | Status visual | Funcional |
 |------|---------|---------------|-----------|
 | Dashboard | `/` | **Premium** (Hero serif, StatCards count-up, chart animado, RunButton). ✅ | ✅ |
-| Disparos | `/disparos` | Paleta `zinc-*` residual. ⏳ | ✅ (preview+cancelar+gate — §8) |
-| Agendamento | `/agendamento` | Nova paleta + animações. ✅ | ✅ (scheduler embedded — §9) |
-| Histórico | `/historico` | Idem. ⏳ | ✅ (drawer click-to-see-all — §8) |
+| Disparos | `/disparos` | Paleta `zinc-*` residual. ⏳ | ✅ (preview+cancelar+gate — §8; ResumoPainel — §10) |
+| Agendamento | `/agendamento` | Nova paleta + animações. ✅ | ✅ (scheduler embedded — §9; ResumoPainel — §10) |
+| Histórico | `/historico` | Idem. ⏳ | ✅ (drawer click-to-see-all — §8; ResumoPainel — §10) |
 | Templates | `/templates` | Idem. ⏳ | ✅ (buscar/listar/definir — §8) |
 | Configurações | `/config` | Idem. ⏳ | ✅ |
 
@@ -511,6 +511,36 @@ Wrapper extraído do flow do `/api/run/route.ts`. Recebe `{ modo, placasIds?, or
 - **Timezone:** `proximaExecucao` usa hora local do servidor; UI mostra com fuso `America/Sao_Paulo`. `node-cron` também roda em hora local. Ajustar se hospedar fora do Brasil.
 - **Simultaneidade:** se `dispararAgora()` é chamado enquanto o cron está rodando, ambos executam em paralelo (não há lock). Pode duplicar envios. **Phase 2:** adicionar lock simples por timestamp.
 - O CLI runner (`src/index.ts`) continua existindo — útil pra rodar fora do web (ex: cron do sistema). Mas agora **não é mais o caminho recomendado** pra agendamento; a UI de `/agendamento` cobre o uso normal.
+
+---
+
+## 10. ResumoPainel (mini-BI reutilizável)
+
+Painel de agregação + filtros + drill-down embutido em `/disparos`, `/historico` e `/agendamento`. Usuário pode ver de relance: **valor total, # prestadores distintos, # associações, # CNPJs**, e fatiar por qualquer um deles.
+
+### Arquivos
+
+- **`lib/resumo-types.ts`**: tipo `ItemResumo` (shape padrão), adapters `itemFromAtendimento` / `itemFromDisparo`, `calcKPIs`, `sliceBy(items, 'prestador'|'associacao'|'cnpj'|'status')`.
+- **`app/components/ResumoPainel.tsx`**: componente client. Card colapsável com:
+  - **5 KPIs** no topo (Itens, Valor total, Prestadores, Associações, CNPJs)
+  - **Filtros** multi-select (associação/prestador/CNPJ) + range de valor; chips removíveis
+  - **Tabs**: por Prestador / por Associação / por CNPJ (+ por Status só em historico)
+  - **Drill-down**: clicar numa linha do slice toggleia o filtro correspondente — KPIs e slice recalculam
+  - **Sub-rows expansíveis**: em "Por CNPJ" mostra os prestadores atrelados (resolve "1 CNPJ → N prestadores"); em "Por Associação" mostra os CNPJs sob ela.
+
+### Padronização da fonte
+
+| Tela | Fonte | Adapter |
+|------|-------|---------|
+| `/disparos` | `mapeaveis: AtendimentoView[]` + `manuais` | `itemFromAtendimento` |
+| `/historico` | `items: DisparoRow[]` | `itemFromDisparo` |
+| `/agendamento` | `atendimentos: AtendimentoOption[]` (ampliado pra incluir associacao/cnpj/valor/telefone) | inline mapping |
+
+### Caveats
+
+- **Histórico não tem `associacao`/`cnpj` no modelo `Disparo`**: por enquanto vêm vazios na fonte do /historico. KPIs de prestadores e valor funcionam; associação/CNPJ ficam zerados. **Phase 2:** adicionar colunas no model `Disparo` ao gravar disparo (já temos no atendimento).
+- **Drill-down é interno ao painel**: por enquanto não propaga pra tabela principal (busca/filtros já existentes continuam separados). `onDrillDown` é exposto pra integração futura.
+- **Performance**: 192 atendimentos / 500 disparos é nada. Tudo em `useMemo` client-side.
 
 ---
 
