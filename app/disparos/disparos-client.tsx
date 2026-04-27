@@ -10,7 +10,7 @@ import { TemplatePreview } from './TemplatePreview';
 import { AnimatedModal } from '../components/AnimatedModal';
 import { InfoHint } from '../components/InfoHint';
 import { GLOSSARIO } from '../dashboard/glossario';
-import { ResumoPainel } from '../components/ResumoPainel';
+import { ResumoPainel, type ResumoFiltros, aplicarFiltrosResumo } from '../components/ResumoPainel';
 import { itemFromAtendimento } from '../../lib/resumo-types';
 
 interface Props {
@@ -83,6 +83,7 @@ export function DisparosClient({
   });
   const abortCtrlRef = useRef<AbortController | null>(null);
   const previewAsideRef = useRef<HTMLElement | null>(null);
+  const [resumoFiltros, setResumoFiltros] = useState<ResumoFiltros>({ prestadores: [], associacoes: [], cnpjs: [] });
 
   // Auto-scroll do preview pra dentro da viewport em telas pequenas (< md, onde o aside fica embaixo da tabela).
   useEffect(() => {
@@ -101,12 +102,21 @@ export function DisparosClient({
 
   const filtrados = useMemo(() => {
     const todos = [...mapeaveis, ...manuais];
+    // Cast pra ItemResumo-compatible (mapeaveis/manuais já têm os mesmos campos relevantes)
+    const aposResumo = aplicarFiltrosResumo(
+      todos.map((a) => ({
+        ...a,
+        // ItemResumo precisa de dataAtendimento — usamos dataISO
+        dataAtendimento: a.dataISO,
+      })),
+      resumoFiltros,
+    );
     const q = buscaDeferred.trim().toLowerCase();
-    if (!q) return todos;
-    return todos.filter((a) =>
+    if (!q) return aposResumo as typeof todos;
+    return (aposResumo as typeof todos).filter((a) =>
       [a.placa, a.modelo, a.prestador, a.id].some((c) => c.toLowerCase().includes(q)),
     );
-  }, [buscaDeferred, mapeaveis, manuais]);
+  }, [buscaDeferred, mapeaveis, manuais, resumoFiltros]);
 
   const itensResumo = useMemo(
     () => [...mapeaveis, ...manuais].map(itemFromAtendimento),
@@ -274,7 +284,7 @@ export function DisparosClient({
 
   return (
     <>
-      <ResumoPainel items={itensResumo} contexto="disparos" />
+      <ResumoPainel items={itensResumo} contexto="disparos" onFiltrosChange={setResumoFiltros} />
 
       {/* SELETOR DE PERÍODO */}
       <div className="card mb-4">

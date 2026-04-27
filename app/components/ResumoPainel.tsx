@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ChevronDown, ChevronRight, Filter, Users, Building2, FileText,
@@ -14,8 +14,20 @@ interface Props {
   items: ItemResumo[];
   /** Identifica a tela: muda título e mostra "Por Status" só em historico. */
   contexto: 'disparos' | 'historico' | 'agendamento';
-  /** Callback opcional pra propagar filtros de drill-down pra tabela pai. */
-  onDrillDown?: (filtros: ResumoFiltros) => void;
+  /** Callback chamado SEMPRE que filtros mudam (controlado ou drill-down). Pai aplica nos seus dados. */
+  onFiltrosChange?: (filtros: ResumoFiltros) => void;
+}
+
+/** Aplica os filtros do painel num array genérico de itens. Helper exportado pro pai. */
+export function aplicarFiltrosResumo<T extends ItemResumo>(items: T[], f: ResumoFiltros): T[] {
+  return items.filter((i) => {
+    if (f.prestadores.length && !f.prestadores.includes(i.prestador)) return false;
+    if (f.associacoes.length && !f.associacoes.includes(i.associacao)) return false;
+    if (f.cnpjs.length        && !f.cnpjs.includes(i.cnpj))            return false;
+    if (f.valorMin !== undefined && i.valor < f.valorMin)              return false;
+    if (f.valorMax !== undefined && i.valor > f.valorMax)              return false;
+    return true;
+  });
 }
 
 export interface ResumoFiltros {
@@ -34,7 +46,7 @@ const ease = [0.16, 1, 0.3, 1] as const;
 const BRL = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const NUM = (n: number) => n.toLocaleString('pt-BR');
 
-export function ResumoPainel({ items, contexto, onDrillDown }: Props) {
+export function ResumoPainel({ items, contexto, onFiltrosChange }: Props) {
   const [aberto, setAberto] = useState(false);
   const [tab, setTab] = useState<Tab>('prestador');
 
@@ -53,16 +65,12 @@ export function ResumoPainel({ items, contexto, onDrillDown }: Props) {
     valorMax:    valorMax === '' ? undefined : Number(valorMax),
   }), [prestadoresSel, associacoesSel, cnpjsSel, valorMin, valorMax]);
 
-  const itemsFiltrados = useMemo(() => {
-    return items.filter((i) => {
-      if (filtros.prestadores.length && !filtros.prestadores.includes(i.prestador)) return false;
-      if (filtros.associacoes.length && !filtros.associacoes.includes(i.associacao)) return false;
-      if (filtros.cnpjs.length        && !filtros.cnpjs.includes(i.cnpj))            return false;
-      if (filtros.valorMin !== undefined && i.valor < filtros.valorMin)              return false;
-      if (filtros.valorMax !== undefined && i.valor > filtros.valorMax)              return false;
-      return true;
-    });
-  }, [items, filtros]);
+  // Propaga filtros pro pai a cada mudança (cascada com tabela principal).
+  const onChangeRef = useRef(onFiltrosChange);
+  useEffect(() => { onChangeRef.current = onFiltrosChange; }, [onFiltrosChange]);
+  useEffect(() => { onChangeRef.current?.(filtros); }, [filtros]);
+
+  const itemsFiltrados = useMemo(() => aplicarFiltrosResumo(items, filtros), [items, filtros]);
 
   const kpis = useMemo(() => calcKPIs(itemsFiltrados), [itemsFiltrados]);
   const linhasSlice = useMemo(() => sliceBy(itemsFiltrados, tab), [itemsFiltrados, tab]);
@@ -89,7 +97,6 @@ export function ResumoPainel({ items, contexto, onDrillDown }: Props) {
     if (campo === 'prestador') toggleSet(prestadoresSel, setPrestadoresSel, chave);
     if (campo === 'associacao') toggleSet(associacoesSel, setAssociacoesSel, chave);
     if (campo === 'cnpj')       toggleSet(cnpjsSel,       setCnpjsSel,       chave);
-    onDrillDown?.(filtros);
   }
 
   return (

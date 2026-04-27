@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import { CalendarClock, Clock, Play, Save, Sparkles, ListChecks, Zap } from 'lucide-react';
 import { useFeedbackAction } from '../components/useFeedbackAction';
 import { InfoHint } from '../components/InfoHint';
-import { ResumoPainel } from '../components/ResumoPainel';
+import { ResumoPainel, type ResumoFiltros, aplicarFiltrosResumo } from '../components/ResumoPainel';
 import type { ItemResumo } from '../../lib/resumo-types';
 
 interface AtendimentoOption {
@@ -65,6 +65,7 @@ export function AgendamentoClient({ initial, atendimentos }: Props) {
   const [minuto, setMinuto]         = useState(initial.minuto);
   const [placas, setPlacas]         = useState<Set<string>>(new Set(initial.placas));
   const [busca, setBusca]           = useState('');
+  const [resumoFiltros, setResumoFiltros] = useState<ResumoFiltros>({ prestadores: [], associacoes: [], cnpjs: [] });
 
   const dirty = useMemo(() => {
     if (ativo  !== initial.ativo)  return true;
@@ -97,12 +98,16 @@ export function AgendamentoClient({ initial, atendimentos }: Props) {
   }
 
   const atendimentosFiltrados = useMemo(() => {
+    const aposResumo = aplicarFiltrosResumo(
+      atendimentos.map((a) => ({ ...a, dataAtendimento: a.dataISO, telefone: a.telefone, status: undefined })),
+      resumoFiltros,
+    );
     const q = busca.trim().toLowerCase();
-    if (!q) return atendimentos;
-    return atendimentos.filter((a) =>
+    if (!q) return aposResumo as typeof atendimentos;
+    return (aposResumo as typeof atendimentos).filter((a) =>
       [a.placa, a.modelo, a.prestador].some((c) => c.toLowerCase().includes(q)),
     );
-  }, [atendimentos, busca]);
+  }, [atendimentos, busca, resumoFiltros]);
 
   const itensResumo = useMemo<ItemResumo[]>(() => atendimentos.map((a) => ({
     id: a.id,
@@ -163,7 +168,7 @@ export function AgendamentoClient({ initial, atendimentos }: Props) {
 
   return (
     <>
-    <ResumoPainel items={itensResumo} contexto="agendamento" />
+    <ResumoPainel items={itensResumo} contexto="agendamento" onFiltrosChange={setResumoFiltros} />
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* COL ESQUERDA: configuração principal */}
       <div className="lg:col-span-2 space-y-4">

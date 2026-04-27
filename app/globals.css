@@ -8,6 +8,47 @@
 }
 .animate-shimmer { animation: shimmer 1.4s infinite; }
 
+/* Scrollbars suaves — fininhos, transparentes, sem setas, escondem na inatividade.
+   Cobre <html>, <body> e qualquer container com overflow:auto/scroll.
+   WebKit (Chrome/Edge/Safari) + Firefox + container com overlay-scrollbar quando suportado. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.25) transparent;
+}
+.dark * {
+  scrollbar-color: rgba(237, 228, 211, 0.18) transparent;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background: transparent;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+  border: none;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 116, 139, 0.22);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 200ms;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(37, 99, 235, 0.45);
+}
+.dark ::-webkit-scrollbar-thumb {
+  background-color: rgba(237, 228, 211, 0.16);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(85, 113, 229, 0.45);
+}
+::-webkit-scrollbar-corner,
+::-webkit-scrollbar-button {
+  display: none;
+  background: transparent;
+}
+
 @layer base {
   html { font-family: var(--font-sans, system-ui, sans-serif); }
 

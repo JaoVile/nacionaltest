@@ -11,7 +11,7 @@ import { StatChip, type StatChipTone } from '../components/StatChip';
 import { EmptyState } from '../components/EmptyState';
 import { useFeedbackAction } from '../components/useFeedbackAction';
 import { statusAtomosHumano } from '../dashboard/glossario';
-import { ResumoPainel } from '../components/ResumoPainel';
+import { ResumoPainel, type ResumoFiltros } from '../components/ResumoPainel';
 import { itemFromDisparo } from '../../lib/resumo-types';
 
 export interface DisparoRow {
@@ -60,17 +60,23 @@ export function HistoricoClient({ items, agregado }: Props) {
   const buscaDeferred = useDeferredValue(busca);
   const [drawerId, setDrawerId] = useState<string | null>(null);
   const [verDetalhes, setVerDetalhes] = useState(false);
+  const [resumoFiltros, setResumoFiltros] = useState<ResumoFiltros>({ prestadores: [], associacoes: [], cnpjs: [] });
   const [, startTransition] = useTransition();
 
   const filtrados = useMemo(() => {
     const q = buscaDeferred.trim().toLowerCase();
     return items.filter((d) => {
       if (!matchFiltro(d.ultimoStatus, filtro)) return false;
+      // Filtros do ResumoPainel (cascata)
+      if (resumoFiltros.prestadores.length && !resumoFiltros.prestadores.includes(d.prestador ?? '')) return false;
+      if (resumoFiltros.valorMin !== undefined && d.valor < resumoFiltros.valorMin) return false;
+      if (resumoFiltros.valorMax !== undefined && d.valor > resumoFiltros.valorMax) return false;
+      // associacoes/cnpjs ficam fora aqui — Disparo não guarda esses campos (Phase 2)
       if (!q) return true;
       return [d.placa, d.prestador ?? '', d.atendimentoId, d.atomosMessageId ?? '']
         .some((c) => c.toLowerCase().includes(q));
     });
-  }, [items, filtro, buscaDeferred]);
+  }, [items, filtro, buscaDeferred, resumoFiltros]);
 
   const totalEntregues = (agregado.DELIVERED ?? 0) + (agregado.READ ?? 0);
   const totalErros     = (agregado.FAILED ?? 0)    + (agregado.ERROR ?? 0);
@@ -150,7 +156,7 @@ export function HistoricoClient({ items, agregado }: Props) {
 
   return (
     <>
-      <ResumoPainel items={itensResumo} contexto="historico" />
+      <ResumoPainel items={itensResumo} contexto="historico" onFiltrosChange={setResumoFiltros} />
 
       <div className="grid grid-cols-3 gap-3 mb-3">
         <StatChip label="Todos"     value={items.length}    active={filtro === ''}          onClick={() => setFiltro('')}                                          tone="default" delay={0}   />
