@@ -284,19 +284,34 @@ O endpoint `app/api/run/route.ts` invoca esse mesmo runner quando o botão **Exe
 
 ### Paleta (via `tailwind.config.ts`)
 
-- **Accent** — azul-claro `#3B82F6` (light) / azul-profundo `accent-deep` `#1D4ED8` (dark)
-- **Ivory** 50–500 — marfim quente (`#FBF8EF` → `#A79B78`), usado como texto no dark
-- **Deep** 50–400 — deep navy (`#1F2A3F` → `#070D1C`), usado como bg/surface no dark
-- **Slate** (Tailwind default) — bg/text no light
+Princípio: **light vivo, dark caridoso.** Light tem branco com subtom azul claro e acentos saturados pra dar vida. Dark mantém deep navy mas suaviza texto, borders e glows — pensado pra trabalho noturno (não brilhar/cansar a vista).
 
-**Light mode:** `bg-slate-50` + texto `slate-900` + acento `#3B82F6`
-**Dark mode:** `bg-deep-300` + texto `ivory-200` + acento `accent-deep` com `shadow-glow-deep`
+| Token | Light | Dark | Notas |
+|-------|-------|------|-------|
+| `accent.DEFAULT` | `#2563EB` blue-600 | (não usado direto) | Vivo no light — botões primários, foco, ativo do nav |
+| `accent.soft` | `#3B82F6` blue-500 | — | Hover do botão primário no light |
+| `accent.glow` | `#60A5FA` blue-400 | — | Glow base |
+| `accent.deep` | — | `#3B5BDB` | Suavizado (era `#1D4ED8`) — botão primário no dark |
+| `accent.deepSoft` | — | `#5571E5` | Hover do botão no dark |
+| `mist.50/100/200` | `#F7FAFE` / `#EEF4FB` / `#DCE8F6` | — | Subtom azul claro: bg de inputs, hovers, cards (border) |
+| `ivory.200` | — | `#EDE4D3` | Headlines no dark (era `ivory-100`) |
+| `ivory.300` | — | `#E0D3B4` | Body text no dark (era `ivory-200`) — menos glare |
+| `ivory.500` | — | `#A79B78` | Eyebrow / muted |
+| `deep.100` | — | `#17203A` | Surface (cards) |
+| `deep.300` | — | `#0C1427` | Bg do body |
+
+**Light mode:** `bg-white` + gradient sutil azul radial fixo no body (`body::before`) + texto `slate-900` + acento `#2563EB`
+**Dark mode:** `bg-deep-300` + texto `ivory-300` (body) / `ivory-200` (headlines) + acento `accent-deep` (`#3B5BDB`) com `shadow-glow-deep` opacidade reduzida
+
+Glows:
+- `shadow-glow-accent` (light, vivo): `rgba(37,99,235, .40/.50)`
+- `shadow-glow-deep` (dark, caridoso): `rgba(59,91,219, .28/.38)`
 
 ### Tipografia
 
 - **Sans:** Inter (`--font-sans`)
 - **Mono:** JetBrains Mono (`--font-mono`)
-- **Serif:** Instrument Serif (`--font-serif`) — headlines editoriais (Hero do dashboard, títulos de modal)
+- **Display/Serif:** **Fraunces** (`--font-display`) — eixo `opsz` ativo (optical size). Tailwind aliasa `font-display` e `font-serif` pra mesma var, então as duas classes funcionam.
 
 ### Motion / feel
 
@@ -325,11 +340,11 @@ O endpoint `app/api/run/route.ts` invoca esse mesmo runner quando o botão **Exe
 | Templates | `/templates` | Idem. ⏳ | ✅ (buscar/listar/definir — §8) |
 | Configurações | `/config` | Idem. ⏳ | ✅ |
 
-Shell/TopBar/SideNav/toggles **já estão na paleta nova** — toda tela herda bg + nav corretos; só os conteúdos internos têm `zinc-*` residual.
+Shell/TopBar/SideNav/toggles **já estão na paleta nova** (light branco + subtom azul mist + accent vivo; dark suavizado) — toda tela herda bg + nav corretos; só os conteúdos internos têm `zinc-*` residual.
 
 ### Próximos passos do front
 
-1. Propagar paleta nova (`slate` / `ivory` / `deep`) para Disparos, Histórico, Templates, Config.
+1. Propagar paleta nova (`slate` / `mist` / `ivory` / `deep` / `accent`) para Disparos, Histórico, Templates, Config — substituir `zinc-*` residual.
 2. Aplicar padrão de animação (FadeIn, StatCard, AnimatePresence em modais) onde fizer sentido.
 3. Adicionar SFX nos handlers de ação nas outras telas.
 

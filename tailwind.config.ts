@@ -17,18 +17,26 @@ const config: Config = {
         'h-section': ['1.125rem',                            { lineHeight: '1.35', letterSpacing: '-0.005em' }],
       },
       colors: {
-        // Light: branco + azul claro. Dark: deep blue + marfim + deep accent.
+        // Light: branco com subtom azul claro + acentos vivos.
+        // Dark : deep blue + marfim suavizado + accent caridoso (trabalho noturno).
         accent: {
-          DEFAULT: '#3B82F6', // blue-500 — azul claro vibrante (light)
-          soft:    '#60A5FA', // blue-400
-          glow:    '#93C5FD', // blue-300
-          deep:    '#1D4ED8', // blue-700 — usado em dark
+          DEFAULT: '#2563EB', // blue-600 — vivo (light)
+          soft:    '#3B82F6', // blue-500 — hover (light)
+          glow:    '#60A5FA', // blue-400 — glow base
+          deep:    '#3B5BDB', // suavizado (era blue-700) — não machuca olhos no dark
+          deepSoft:'#5571E5', // hover dark
+        },
+        // Subtom azul claro pra surfaces/hovers no light. Tailwind sky default cobre o resto.
+        mist: {
+          50:  '#F7FAFE', // bg ultra sutil
+          100: '#EEF4FB', // hover/seleção
+          200: '#DCE8F6', // border tinted
         },
         ivory: {
           50:  '#FBF8EF',
           100: '#F5ECD3',
           200: '#EDE4D3',
-          300: '#E0D3B4',
+          300: '#E0D3B4', // novo padrão de body text no dark (mais carinhoso que ivory-200)
           400: '#CBBE99',
           500: '#A79B78',
         },
@@ -49,9 +57,11 @@ const config: Config = {
         'elev-1': '0 1px 2px rgba(15,23,42,0.04), 0 1px 1px rgba(15,23,42,0.02)',
         'elev-2': '0 4px 12px -2px rgba(15,23,42,0.06), 0 2px 4px -1px rgba(15,23,42,0.04)',
         'elev-3': '0 12px 32px -8px rgba(15,23,42,0.12), 0 4px 10px -2px rgba(15,23,42,0.05)',
-        'glow-accent':      '0 0 0 1px rgba(59,130,246,0.35), 0 10px 30px -8px rgba(59,130,246,0.45)',
-        'glow-accent-soft': '0 0 0 1px rgba(59,130,246,0.18), 0 6px 18px -6px rgba(59,130,246,0.28)',
-        'glow-deep':        '0 0 0 1px rgba(46,91,255,0.40), 0 12px 36px -10px rgba(46,91,255,0.55)',
+        // Light: glow azul mais saturado (vivacidade)
+        'glow-accent':      '0 0 0 1px rgba(37,99,235,0.40), 0 12px 32px -8px rgba(37,99,235,0.50)',
+        'glow-accent-soft': '0 0 0 1px rgba(37,99,235,0.20), 0 6px 18px -6px rgba(37,99,235,0.30)',
+        // Dark: glow mais comportado, opacidade reduzida pra não cansar a vista
+        'glow-deep':        '0 0 0 1px rgba(59,91,219,0.28), 0 10px 28px -10px rgba(59,91,219,0.38)',
       },
       keyframes: {
         'fade-in-up': {

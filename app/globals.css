@@ -11,11 +11,29 @@
 @layer base {
   html { font-family: var(--font-sans, system-ui, sans-serif); }
 
-  /* Light: branco levemente frio + azul claro
-     Dark : deep navy + marfim quente + acento azul profundo */
+  /* Light: branco com subtom azul-claro + acentos vivos.
+     Dark : deep navy + marfim suavizado + acento mais caridoso (não cansa de noite). */
   body {
-    @apply antialiased bg-slate-50 text-slate-900
-           dark:bg-deep-300 dark:text-ivory-200;
+    @apply antialiased bg-white text-slate-900
+           dark:bg-deep-300 dark:text-ivory-300;
+  }
+
+  /* Subtom azul claro do light — gradient sutil radial no topo da página.
+     No dark é um glow azul-profundo com opacidade reduzida (descansado). */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background:
+      radial-gradient(ellipse 80% 45% at 50% 0%, rgba(59,130,246,0.07), transparent 70%),
+      radial-gradient(ellipse 60% 35% at 100% 100%, rgba(96,165,250,0.05), transparent 70%);
+  }
+  .dark body::before {
+    background:
+      radial-gradient(ellipse 80% 45% at 50% 0%, rgba(59,91,219,0.08), transparent 70%),
+      radial-gradient(ellipse 60% 35% at 100% 100%, rgba(46,91,255,0.05), transparent 70%);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -28,51 +46,52 @@
 }
 
 @layer components {
-  /* Typography scale */
+  /* Typography scale — headlines no dark usam ivory-200 (em vez do antigo ivory-100)
+     pra reduzir glare em ambiente noturno. */
   .h-display {
-    @apply font-display text-display font-black text-slate-900 dark:text-ivory-100;
+    @apply font-display text-display font-black text-slate-900 dark:text-ivory-200;
     font-feature-settings: 'ss01', 'ss02';
   }
   .h-page {
-    @apply font-display text-h-page font-bold text-slate-900 dark:text-ivory-100;
+    @apply font-display text-h-page font-bold text-slate-900 dark:text-ivory-200;
   }
   .h-section {
-    @apply font-display text-h-section font-semibold text-slate-900 dark:text-ivory-100;
+    @apply font-display text-h-section font-semibold text-slate-900 dark:text-ivory-200;
   }
   .eyebrow {
     @apply text-[0.7rem] font-mono font-semibold uppercase tracking-[0.24em]
            text-slate-400 dark:text-ivory-500;
   }
 
-  /* Card */
+  /* Card — light com border azul-tinted sutil; dark com border mais discreta */
   .card {
-    @apply rounded-2xl border border-slate-200/80 bg-white p-6 shadow-elev-1
-           dark:border-ivory-200/[0.08] dark:bg-deep-100 dark:shadow-none;
+    @apply rounded-2xl border border-mist-200/70 bg-white p-6 shadow-elev-1
+           dark:border-ivory-200/[0.06] dark:bg-deep-100 dark:shadow-none;
   }
   .card-interactive {
     @apply card transition-all duration-300 ease-out-expo
            hover:shadow-elev-3 hover:-translate-y-0.5
-           hover:border-accent/30
-           dark:hover:border-ivory-200/20;
+           hover:border-accent/40
+           dark:hover:border-ivory-200/15;
   }
 
   /* Glass */
   .surface-glass {
-    @apply bg-white/75 backdrop-blur-xl border border-white/60
+    @apply bg-white/80 backdrop-blur-xl border border-mist-200/60
            dark:bg-deep-100/75 dark:border-ivory-200/10;
   }
 
   /* Stats */
   .stat-label {
-    @apply text-xs font-mono font-semibold uppercase tracking-widest text-slate-400
+    @apply text-xs font-mono font-semibold uppercase tracking-widest text-slate-500
            dark:text-ivory-500;
   }
   .stat-value {
-    @apply mt-1 text-3xl font-bold text-slate-900 dark:text-ivory-100
+    @apply mt-1 text-3xl font-bold text-slate-900 dark:text-ivory-200
            tabular-nums tracking-tight;
   }
 
-  /* Buttons */
+  /* Buttons — primary mais vivo no light (blue-600), suave no dark */
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2
            text-xs font-mono font-semibold tracking-wide
@@ -84,51 +103,51 @@
     @apply btn bg-accent text-white
            shadow-elev-2 hover:shadow-glow-accent hover:-translate-y-px
            hover:bg-accent-soft
-           dark:bg-accent-deep dark:hover:bg-accent dark:hover:shadow-glow-deep;
+           dark:bg-accent-deep dark:hover:bg-accent-deepSoft dark:hover:shadow-glow-deep;
   }
   .btn-outline {
-    @apply btn border border-slate-200 bg-white text-slate-700
-           hover:bg-slate-50 hover:border-slate-300
-           dark:border-ivory-200/15 dark:bg-deep-100 dark:text-ivory-200
-           dark:hover:bg-deep-50 dark:hover:border-ivory-200/25;
+    @apply btn border border-mist-200 bg-white text-slate-700
+           hover:bg-mist-50 hover:border-accent/40 hover:text-accent
+           dark:border-ivory-200/12 dark:bg-deep-100 dark:text-ivory-300
+           dark:hover:bg-deep-50 dark:hover:border-ivory-200/22 dark:hover:text-ivory-200;
   }
   .btn-ghost {
-    @apply btn text-slate-500 hover:text-slate-900 hover:bg-slate-100
-           dark:text-ivory-300 dark:hover:text-ivory-100 dark:hover:bg-ivory-200/[0.06];
+    @apply btn text-slate-600 hover:text-accent hover:bg-mist-50
+           dark:text-ivory-300 dark:hover:text-ivory-200 dark:hover:bg-ivory-200/[0.05];
   }
 
-  /* Inputs */
+  /* Inputs — light com bg azul sutil (subtom), dark com bg deep e foco vivo */
   .form-input {
-    @apply w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2
+    @apply w-full rounded-xl border border-mist-200 bg-mist-50 px-3 py-2
            text-sm text-slate-900 outline-none placeholder:text-slate-400
-           focus:border-accent focus:ring-2 focus:ring-accent/20
+           focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/25
            transition-all duration-200 ease-out-expo
-           dark:border-ivory-200/10 dark:bg-deep-200 dark:text-ivory-100
+           dark:border-ivory-200/10 dark:bg-deep-200 dark:text-ivory-200
            dark:placeholder:text-ivory-500
-           dark:focus:border-accent dark:focus:ring-accent/25;
+           dark:focus:border-accent-deep dark:focus:ring-accent-deep/25;
   }
   .form-select { @apply form-input appearance-none; }
 
-  /* Badges */
+  /* Badges — light mais saturado (vivacidade), dark com opacity reduzida (caridoso) */
   .badge {
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5
            font-mono text-[0.6rem] font-bold uppercase tracking-widest;
   }
-  .badge-success { @apply badge bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/25; }
-  .badge-warning { @apply badge bg-amber-100   text-amber-700   border border-amber-200   dark:bg-amber-500/10  dark:text-amber-400  dark:border-amber-500/25;  }
-  .badge-danger  { @apply badge bg-rose-100    text-rose-700    border border-rose-200    dark:bg-rose-500/10   dark:text-rose-400   dark:border-rose-500/25;   }
-  .badge-info    { @apply badge bg-blue-100    text-blue-700    border border-blue-200    dark:bg-blue-500/10   dark:text-blue-300   dark:border-blue-500/25;   }
-  .badge-neutral { @apply badge bg-slate-100   text-slate-500   border border-slate-200   dark:bg-deep-50       dark:text-ivory-300  dark:border-ivory-200/10;   }
+  .badge-success { @apply badge bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/8  dark:text-emerald-300/90 dark:border-emerald-500/20; }
+  .badge-warning { @apply badge bg-amber-100   text-amber-800   border border-amber-200   dark:bg-amber-500/8   dark:text-amber-300/90   dark:border-amber-500/20;  }
+  .badge-danger  { @apply badge bg-rose-100    text-rose-700    border border-rose-200    dark:bg-rose-500/8    dark:text-rose-300/90    dark:border-rose-500/20;   }
+  .badge-info    { @apply badge bg-mist-100    text-blue-700    border border-mist-200    dark:bg-blue-500/8    dark:text-blue-300/90    dark:border-blue-500/20;   }
+  .badge-neutral { @apply badge bg-slate-100   text-slate-600   border border-slate-200   dark:bg-deep-50       dark:text-ivory-300      dark:border-ivory-200/10;  }
 
-  /* Nav */
+  /* Nav — active no light tem hint de azul; dark suaviza o contraste */
   .nav-link {
     @apply flex items-center rounded-xl px-3 py-2.5 text-sm font-mono
            text-slate-500 transition-all duration-200 ease-out-expo
-           hover:bg-slate-100 hover:text-slate-900
-           dark:text-ivory-300 dark:hover:bg-ivory-200/[0.06] dark:hover:text-ivory-100;
+           hover:bg-mist-50 hover:text-accent
+           dark:text-ivory-300 dark:hover:bg-ivory-200/[0.05] dark:hover:text-ivory-200;
   }
   .nav-link-active {
-    @apply bg-slate-100 text-slate-900 dark:bg-ivory-200/[0.08] dark:text-ivory-100;
+    @apply bg-mist-100 text-accent dark:bg-ivory-200/[0.07] dark:text-ivory-200;
   }
 
   /* Layout helpers */
@@ -136,7 +155,7 @@
   .table-responsive { @apply -mx-4 sm:mx-0 overflow-x-auto; }
   .stat-grid        { @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4; }
 
-  /* Mesh hero */
+  /* Mesh hero — light mais vivo, dark mais comportado pra não brilhar de noite */
   .mesh-hero { position: relative; isolation: isolate; }
   .mesh-hero::before {
     content: '';
@@ -145,17 +164,17 @@
     height: 60%;
     z-index: -1;
     background:
-      radial-gradient(ellipse 60% 50% at 15% 20%, rgba(59,130,246,0.20), transparent 60%),
-      radial-gradient(ellipse 50% 40% at 85% 30%, rgba(147,197,253,0.18), transparent 60%);
+      radial-gradient(ellipse 60% 50% at 15% 20%, rgba(37,99,235,0.22), transparent 60%),
+      radial-gradient(ellipse 50% 40% at 85% 30%, rgba(96,165,250,0.20), transparent 60%);
     filter: blur(40px);
     pointer-events: none;
     opacity: 0.95;
   }
   .dark .mesh-hero::before {
     background:
-      radial-gradient(ellipse 60% 50% at 15% 20%, rgba(46,91,255,0.35), transparent 60%),
-      radial-gradient(ellipse 50% 40% at 85% 30%, rgba(29,78,216,0.22), transparent 60%);
-    opacity: 0.8;
+      radial-gradient(ellipse 60% 50% at 15% 20%, rgba(59,91,219,0.22), transparent 60%),
+      radial-gradient(ellipse 50% 40% at 85% 30%, rgba(46,91,255,0.14), transparent 60%);
+    opacity: 0.7;
   }
 
   /* Command palette */
@@ -163,15 +182,15 @@
   [cmdk-input] {
     @apply w-full bg-transparent outline-none px-4 py-3
            text-base text-slate-900 placeholder:text-slate-400
-           dark:text-ivory-100 dark:placeholder:text-ivory-500;
+           dark:text-ivory-200 dark:placeholder:text-ivory-500;
   }
   [cmdk-list] { @apply max-h-80 overflow-auto px-2 pb-2; }
   [cmdk-item] {
     @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm cursor-pointer
-           text-slate-700 dark:text-ivory-200;
+           text-slate-700 dark:text-ivory-300;
   }
   [cmdk-item][data-selected='true'] {
-    @apply bg-slate-100 text-slate-900 dark:bg-ivory-200/[0.08] dark:text-ivory-100;
+    @apply bg-mist-100 text-accent dark:bg-ivory-200/[0.07] dark:text-ivory-200;
   }
   [cmdk-group-heading] {
     @apply px-3 pt-3 pb-1.5 text-[0.65rem] font-mono font-semibold uppercase tracking-widest
