@@ -12,6 +12,8 @@ interface Props {
   active?: boolean;
   onClick?: () => void;
   delay?: number;
+  /** Variante compacta — padding e fonte menores. Usado em chips secundários. */
+  compact?: boolean;
 }
 
 const toneClass: Record<StatChipTone, { text: string; ring: string; dot: string }> = {
@@ -22,7 +24,7 @@ const toneClass: Record<StatChipTone, { text: string; ring: string; dot: string 
   info:    { text: 'text-accent dark:text-accent-soft',         ring: 'ring-accent/35',                           dot: 'bg-accent dark:bg-accent-soft' },
 };
 
-export function StatChip({ label, value, tone = 'default', active = false, onClick, delay = 0 }: Props) {
+export function StatChip({ label, value, tone = 'default', active = false, onClick, delay = 0, compact = false }: Props) {
   const mv = useMotionValue(0);
   const spring = useSpring(mv, { stiffness: 80, damping: 22, mass: 0.6 });
   const display = useTransform(spring, (v) => Math.round(v).toLocaleString('pt-BR'));
@@ -43,19 +45,23 @@ export function StatChip({ label, value, tone = 'default', active = false, onCli
     >
       <Tag
         onClick={onClick}
-        className={`group w-full text-left rounded-2xl border p-3.5 transition-all duration-200 ease-out-expo
+        className={`group w-full text-left rounded-2xl border transition-all duration-200 ease-out-expo
                     bg-white dark:bg-deep-100
-                    border-slate-200 dark:border-ivory-200/10
-                    ${onClick ? 'hover:border-slate-300 dark:hover:border-ivory-200/20 hover:shadow-elev-2 hover:-translate-y-0.5 cursor-pointer' : ''}
+                    border-mist-200 dark:border-ivory-200/10
+                    ${compact ? 'p-2 sm:p-2.5' : 'p-3 sm:p-3.5'}
+                    ${onClick ? 'hover:border-accent/40 dark:hover:border-ivory-200/20 hover:shadow-elev-2 hover:-translate-y-0.5 cursor-pointer' : ''}
                     ${active ? `ring-2 ${t.ring} shadow-elev-2` : ''}`}
       >
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[0.6rem] font-mono font-semibold uppercase tracking-widest text-slate-400 dark:text-ivory-500">
+          <span className={`font-mono font-semibold uppercase tracking-wider sm:tracking-widest text-slate-500 dark:text-ivory-500
+                            ${compact ? 'text-[0.55rem]' : 'text-[0.6rem]'}`}>
             {label}
           </span>
-          <span className={`w-1.5 h-1.5 rounded-full ${t.dot} ${active ? 'animate-pulse-soft' : ''}`} />
+          <span className={`rounded-full ${t.dot} ${active ? 'animate-pulse-soft' : ''}
+                            ${compact ? 'w-1 h-1' : 'w-1.5 h-1.5'}`} />
         </div>
-        <motion.div className={`mt-1.5 text-2xl font-bold tabular-nums tracking-tight ${t.text}`}>
+        <motion.div className={`mt-1 font-bold tabular-nums tracking-tight ${t.text}
+                                ${compact ? 'text-base sm:text-lg' : 'text-xl sm:text-2xl'}`}>
           {display}
         </motion.div>
       </Tag>

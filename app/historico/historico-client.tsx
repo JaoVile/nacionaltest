@@ -2,8 +2,9 @@
 
 import { useDeferredValue, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { AnimatePresence, motion } from 'framer-motion';
 import type { Schema } from 'write-excel-file/browser';
-import { Download, RefreshCw, Search, Inbox } from 'lucide-react';
+import { Download, RefreshCw, Search, Inbox, ChevronDown } from 'lucide-react';
 import { DisparoDetailDrawer } from '../components/DisparoDetailDrawer';
 import { DataTable, type Column } from '../components/DataTable';
 import { StatChip, type StatChipTone } from '../components/StatChip';
@@ -37,25 +38,40 @@ interface Props {
   agregado: Record<string, number>;
 }
 
-const STATUSES = ['QUEUED', 'SENT', 'DELIVERED', 'READ', 'FAILED', 'ERROR'] as const;
+const STATUSES_DETALHE = ['QUEUED', 'SENT', 'READ', 'FAILED'] as const;
+const ENTREGUES = new Set(['DELIVERED', 'READ']);
+const ERROS     = new Set(['FAILED', 'ERROR']);
+
+type Filtro = '' | 'entregues' | 'erros' | 'QUEUED' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED' | 'ERROR';
+
+function matchFiltro(status: string, filtro: Filtro): boolean {
+  if (!filtro) return true;
+  if (filtro === 'entregues') return ENTREGUES.has(status);
+  if (filtro === 'erros')     return ERROS.has(status);
+  return status === filtro;
+}
 
 export function HistoricoClient({ items, agregado }: Props) {
   const router = useRouter();
-  const [filtro, setFiltro] = useState<string>('');
+  const [filtro, setFiltro] = useState<Filtro>('');
   const [busca, setBusca] = useState('');
   const buscaDeferred = useDeferredValue(busca);
   const [drawerId, setDrawerId] = useState<string | null>(null);
+  const [verDetalhes, setVerDetalhes] = useState(false);
   const [, startTransition] = useTransition();
 
   const filtrados = useMemo(() => {
     const q = buscaDeferred.trim().toLowerCase();
     return items.filter((d) => {
-      if (filtro && d.ultimoStatus !== filtro) return false;
+      if (!matchFiltro(d.ultimoStatus, filtro)) return false;
       if (!q) return true;
       return [d.placa, d.prestador ?? '', d.atendimentoId, d.atomosMessageId ?? '']
         .some((c) => c.toLowerCase().includes(q));
     });
   }, [items, filtro, buscaDeferred]);
+
+  const totalEntregues = (agregado.DELIVERED ?? 0) + (agregado.READ ?? 0);
+  const totalErros     = (agregado.FAILED ?? 0)    + (agregado.ERROR ?? 0);
 
   const pendentes = useMemo(
     () => items.filter((d) => ['QUEUED', 'SENT'].includes(d.ultimoStatus)),
@@ -130,19 +146,49 @@ export function HistoricoClient({ items, agregado }: Props) {
 
   return (
     <>
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-5">
-        <StatChip label="Todos" value={items.length} active={filtro === ''} onClick={() => setFiltro('')} tone="default" delay={0} />
-        {STATUSES.map((s, i) => (
-          <StatChip
-            key={s}
-            label={statusAtomosHumano(s).label}
-            value={agregado[s] ?? 0}
-            active={filtro === s}
-            onClick={() => setFiltro(filtro === s ? '' : s)}
-            tone={toneForStatus(s)}
-            delay={50 * (i + 1)}
-          />
-        ))}
+      <div className="grid grid-cols-3 gap-3 mb-3">
+        <StatChip label="Todos"     value={items.length}    active={filtro === ''}          onClick={() => setFiltro('')}                                          tone="default" delay={0}   />
+        <StatChip label="Entregues" value={totalEntregues}  active={filtro === 'entregues'} onClick={() => setFiltro(filtro === 'entregues' ? '' : 'entregues')} tone="success" delay={50}  />
+        <StatChip label="Erros"     value={totalErros}      active={filtro === 'erros'}     onClick={() => setFiltro(filtro === 'erros' ? '' : 'erros')}         tone="danger"  delay={100} />
+      </div>
+
+      <div className="mb-5">
+        <button
+          type="button"
+          onClick={() => setVerDetalhes((v) => !v)}
+          className="inline-flex items-center gap-1 text-[0.65rem] font-mono font-semibold uppercase tracking-wider text-slate-500 dark:text-ivory-500 hover:text-accent dark:hover:text-accent-soft transition-colors"
+        >
+          {verDetalhes ? 'Esconder detalhes' : 'Ver detalhes por status'}
+          <motion.span animate={{ rotate: verDetalhes ? 180 : 0 }} transition={{ duration: 0.2 }}>
+            <ChevronDown size={12} />
+          </motion.span>
+        </button>
+        <AnimatePresence initial={false}>
+          {verDetalhes && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3">
+                {STATUSES_DETALHE.map((s, i) => (
+                  <StatChip
+                    key={s}
+                    compact
+                    label={statusAtomosHumano(s).label}
+                    value={agregado[s] ?? 0}
+                    active={filtro === s}
+                    onClick={() => setFiltro(filtro === s ? '' : s)}
+                    tone={toneForStatus(s)}
+                    delay={30 * (i + 1)}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <div className="card mb-5">
