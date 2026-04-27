@@ -330,6 +330,25 @@ Glows:
 - **⌘K / Ctrl+K** — abre CommandPalette (navegação, executar agora, alternar tema)
 - **ESC** — fecha modais/palette
 
+### Auto-refresh passivo (3 min)
+
+Componente `app/components/AutoRefresh.tsx` faz `router.refresh()` em intervalo (default 180_000 ms) com `startTransition` — re-renderiza Server Components sem mudar URL nem desmontar Client Components. **Imperceptível**: estado local (filtros, busca, drawer aberto) preserva.
+
+Salvaguardas:
+- Pula tick quando `document.visibilityState !== 'visible'` (não consome com aba oculta).
+- Catch-up automático no `visibilitychange` se o intervalo passou.
+- Pula tick quando o foco está num input/textarea/select/contentEditable (não atrapalha digitação).
+
+**Wired em:** `app/page.tsx` (Dashboard) e `app/historico/page.tsx`. Disparos não usa porque já tem SSE em tempo real; Templates/Config não precisam.
+
+### Responsividade fluida
+
+- **Headlines** — `clamp()` em `text-display`, `text-h-page` (escala com viewport).
+- **Cards** — padding `p-4 sm:p-5 lg:p-6` (mobile compacto, desktop confortável).
+- **Modais** — drawer side-right escala `w-full` → `sm:max-w-md` → `md:max-w-xl`. Header e body modais com `px-4 sm:px-6 py-3 sm:py-4`. Centered modal com título `text-xl sm:text-2xl`.
+- **Stat grid** — `gap-3 sm:gap-4` (mobile compacto).
+- **Shell** — `<main>` já usa `p-4 sm:p-6 md:p-8`.
+
 ### Estado de cada tela
 
 | Tela | Caminho | Status visual | Funcional |

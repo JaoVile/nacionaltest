@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/db';
 import { HistoricoClient, type DisparoRow } from './historico-client';
 import { HistoricoHero } from './HistoricoHero';
+import { AutoRefresh } from '../components/AutoRefresh';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -45,6 +46,7 @@ export default async function HistoricoPage() {
     <div className="page-shell">
       <HistoricoHero total={items.length} />
       <HistoricoClient items={items} agregado={agregado} />
+      <AutoRefresh intervalMs={180_000} />
     </div>
   );
 }

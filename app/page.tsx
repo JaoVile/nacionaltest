@@ -13,6 +13,7 @@ import { FadeIn } from './dashboard/FadeIn';
 import { DevSulErrorCard } from './dashboard/DevSulErrorCard';
 import { GLOSSARIO } from './dashboard/glossario';
 import { InfoHint } from './components/InfoHint';
+import { AutoRefresh } from './components/AutoRefresh';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -189,6 +190,8 @@ export default async function Dashboard() {
           />
         </div>
       </section>
+
+      <AutoRefresh intervalMs={180_000} />
 
       <FadeIn delay={460}>
         <div className="card">

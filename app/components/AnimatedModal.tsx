@@ -60,8 +60,8 @@ export function AnimatedModal({
               onClick={(e) => e.stopPropagation()}
             >
               {title && (
-                <div className="flex items-start justify-between mb-3 gap-4">
-                  <h3 className="font-serif text-2xl tracking-tight text-slate-900 dark:text-ivory-100">{title}</h3>
+                <div className="flex items-start justify-between mb-3 gap-3 sm:gap-4">
+                  <h3 className="font-serif text-xl sm:text-2xl tracking-tight text-slate-900 dark:text-ivory-200">{title}</h3>
                   {!hideClose && <ModalClose onClose={onClose} />}
                 </div>
               )}
@@ -69,7 +69,7 @@ export function AnimatedModal({
             </motion.div>
           ) : (
             <motion.aside
-              className="h-full w-full max-w-xl bg-white dark:bg-deep-100 shadow-elev-3 border-l border-slate-200 dark:border-ivory-200/10 overflow-y-auto"
+              className="h-full w-full sm:max-w-md md:max-w-xl bg-white dark:bg-deep-100 shadow-elev-3 border-l border-mist-200 dark:border-ivory-200/10 overflow-y-auto"
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
@@ -77,14 +77,15 @@ export function AnimatedModal({
               onClick={(e) => e.stopPropagation()}
             >
               {title && (
-                <div className="sticky top-0 z-10 flex items-start justify-between gap-4
+                <div className="sticky top-0 z-10 flex items-start justify-between gap-3 sm:gap-4
                                 bg-white/85 dark:bg-deep-100/85 backdrop-blur
-                                border-b border-slate-200 dark:border-ivory-200/10 px-6 py-4">
-                  <h3 className="font-serif text-2xl tracking-tight text-slate-900 dark:text-ivory-100">{title}</h3>
+                                border-b border-mist-200 dark:border-ivory-200/10
+                                px-4 sm:px-6 py-3 sm:py-4">
+                  <h3 className="font-serif text-xl sm:text-2xl tracking-tight text-slate-900 dark:text-ivory-200">{title}</h3>
                   {!hideClose && <ModalClose onClose={onClose} />}
                 </div>
               )}
-              <div className="p-6">{children}</div>
+              <div className="p-4 sm:p-6">{children}</div>
             </motion.aside>
           )}
         </motion.div>
