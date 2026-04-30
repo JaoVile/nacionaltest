@@ -13,6 +13,22 @@ export const runtime = 'nodejs';
 const ENV_PATH = path.resolve(process.cwd(), '.env');
 const MASKED_KEYS = ['DEVSUL_BEARER_TOKEN', 'ATOMOS_BEARER_TOKEN', 'ATOMOS_CHANNEL_ID'];
 
+/**
+ * Chaves de infraestrutura que NUNCA podem ser editadas via UI.
+ * Mudar essas via API teria efeito catastrófico ou exigiria restart manual.
+ * Quem precisa alterar: editar `.env` no host e reiniciar o processo.
+ */
+const BLOCKED_KEYS = new Set([
+  'DATABASE_URL',
+  'DIRECT_URL',
+  'NEXTAUTH_SECRET',
+  'NEXTAUTH_URL',
+  'GOOGLE_CLIENT_ID',
+  'GOOGLE_CLIENT_SECRET',
+  'ALLOWED_EMAILS',
+  'NODE_ENV',
+]);
+
 function readEnvFile(): string {
   return fs.existsSync(ENV_PATH) ? fs.readFileSync(ENV_PATH, 'utf-8') : '';
 }
@@ -100,7 +116,9 @@ export async function PATCH(req: NextRequest) {
 
   const patches = Object.fromEntries(
     Object.entries(parsed.data)
-      .filter(([, v]) => typeof v === 'string' && !v.includes('••')),
+      .filter(([k, v]) =>
+        typeof v === 'string' && !v.includes('••') && !BLOCKED_KEYS.has(k),
+      ),
   ) as Record<string, string>;
 
   if (Object.keys(patches).length === 0) {

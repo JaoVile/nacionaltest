@@ -6,6 +6,10 @@ import { prisma } from '../../../lib/db';
 import { requireUser } from '../../../lib/auth';
 import { writeAudit } from '../../../lib/audit';
 import { startRun, updateRun, endRun } from '../../../lib/run-state';
+import { checkRateLimit } from '../../../lib/rate-limit';
+import { sanitizeError } from '../../../lib/errors';
+import { redactPayload } from '../../../lib/pii';
+import { agendarAutoConclusao } from '../../../lib/autocomplete';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -25,12 +29,15 @@ export async function POST(req: NextRequest) {
   const authed = await requireUser(req);
   if (authed instanceof NextResponse) return authed;
 
+  const rl = checkRateLimit(authed.email, '/api/run');
+  if (!rl.ok) return rl.response!;
+
   const cfg = loadConfig();
   try {
     assertAtomosReady(cfg);
   } catch (e) {
     await writeAudit({ user: authed, action: 'disparo.run', req, statusCode: 400, errorMsg: (e as Error).message });
-    return NextResponse.json({ erro: (e as Error).message }, { status: 400 });
+    return sanitizeError(e, 400, 'Configuração Atomos incompleta');
   }
 
   const { mapeaveis, erro: erroDevSul } = await carregarAtendimentos();
@@ -107,25 +114,31 @@ export async function POST(req: NextRequest) {
         vModelo:            values.modelo,
         vValor:             values.valor,
         vData:              values.data,
-        requestPayload:     safeJson(send.request),
-        responseBody:       safeJson(send.response),
+        // LGPD: redact telefones em payloads salvos. Ver lib/pii.ts.
+        requestPayload:     safeJson(redactPayload(send.request)),
+        responseBody:       safeJson(redactPayload(send.response)),
         httpStatus:         send.status,
-        statusCheckBody:    safeJson(statusCheck),
-        rawAtendimento:     safeJson(m.raw),
+        statusCheckBody:    safeJson(redactPayload(statusCheck)),
+        rawAtendimento:     safeJson(redactPayload(m.raw)),
         elapsedMs:          send.elapsedMs,
         origem:             'AUTO',
         eventos: { create: { status: statusRegistrado, failureReason } },
       },
     });
 
+    const okEnvio = send.ok && statusFinal !== 'FAILED';
     resultados.push({
       disparoId:     disparo.id,
       placa:         m.placa,
-      ok:            send.ok && statusFinal !== 'FAILED',
+      ok:            okEnvio,
       status:        statusRegistrado,
       failureReason,
       ...(send.error ? { error: send.error } : {}),
     });
+
+    if (okEnvio && sessionId) {
+      void agendarAutoConclusao(disparo.id, sessionId);
+    }
 
     await sleep(cfg.SEND_DELAY_MS);
   }

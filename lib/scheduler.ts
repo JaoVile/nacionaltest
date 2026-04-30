@@ -2,6 +2,7 @@ import cron, { ScheduledTask } from 'node-cron';
 import { logger } from '../src/logger';
 import { prisma } from './db';
 import { executarAgendamento } from './disparo-runner';
+import { purgarLgpd } from './purga';
 
 /**
  * Scheduler singleton — sobrevive HMR via globalThis.
@@ -18,6 +19,8 @@ interface SchedulerState {
 declare global {
   // eslint-disable-next-line no-var
   var __nacionalScheduler: SchedulerState | undefined;
+  // eslint-disable-next-line no-var
+  var __nacionalPurgaTask: ScheduledTask | undefined;
 }
 
 function state(): SchedulerState {
@@ -169,4 +172,29 @@ export function statusAtual(): { ativo: boolean; cronExpr: string | null } {
 /** Dispara uma rodada agora, sem esperar o cron. Usado pelo botão "Disparar agora". */
 export async function dispararAgora(): Promise<void> {
   await rodarAgendado();
+}
+
+/**
+ * Cron diário de retenção LGPD — roda às 03:00 da hora local do servidor.
+ * Idempotente: re-registrar não duplica. Singleton via globalThis.
+ *
+ * Decidi por timer separado (`__nacionalPurgaTask`) para não acoplar com
+ * o ciclo do Agendamento configurável pela UI — purga é política da casa,
+ * não opcional.
+ */
+const PURGA_CRON_EXPR = '0 3 * * *';
+
+export function aplicarPurga(): { ativo: boolean; cronExpr: string } {
+  if (globalThis.__nacionalPurgaTask) {
+    return { ativo: true, cronExpr: PURGA_CRON_EXPR };
+  }
+
+  const task = cron.schedule(PURGA_CRON_EXPR, () => {
+    purgarLgpd().catch((e) =>
+      logger.error({ err: (e as Error).message }, 'lgpd: purga agendada falhou'),
+    );
+  });
+  globalThis.__nacionalPurgaTask = task;
+  logger.info({ expr: PURGA_CRON_EXPR }, 'lgpd: cron de purga registrado');
+  return { ativo: true, cronExpr: PURGA_CRON_EXPR };
 }
