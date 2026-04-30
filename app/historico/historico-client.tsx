@@ -38,6 +38,7 @@ export interface DisparoRow {
 interface Props {
   items: DisparoRow[];
   agregado: Record<string, number>;
+  diaFiltro?: string | null;
 }
 
 const STATUSES_DETALHE = ['QUEUED', 'SENT', 'READ', 'FAILED'] as const;
@@ -53,7 +54,7 @@ function matchFiltro(status: string, filtro: Filtro): boolean {
   return status === filtro;
 }
 
-export function HistoricoClient({ items, agregado }: Props) {
+export function HistoricoClient({ items, agregado, diaFiltro }: Props) {
   const router = useRouter();
   const [filtro, setFiltro] = useState<Filtro>('');
   const [busca, setBusca] = useState('');
@@ -156,6 +157,23 @@ export function HistoricoClient({ items, agregado }: Props) {
 
   return (
     <>
+      {diaFiltro && (
+        <div className="card mb-4 flex flex-wrap items-center gap-3 bg-accent/5 dark:bg-accent-deep/15 border-accent/30 dark:border-accent-deep/40">
+          <span className="text-sm text-slate-700 dark:text-ivory-200">
+            Filtrando disparos do dia <strong className="font-mono tabular-nums">{diaFiltro}</strong>
+            <span className="ml-2 text-slate-500 dark:text-ivory-400">
+              · {items.length} {items.length === 1 ? 'envio' : 'envios'} nesse dia
+            </span>
+          </span>
+          <a
+            href="/historico"
+            className="ml-auto text-xs font-mono font-semibold text-accent dark:text-accent-soft hover:underline"
+          >
+            Limpar filtro
+          </a>
+        </div>
+      )}
+
       <ResumoPainel items={itensResumo} contexto="historico" onFiltrosChange={setResumoFiltros} />
 
       <div className="grid grid-cols-3 gap-3 mb-3">

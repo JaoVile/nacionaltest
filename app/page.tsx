@@ -30,7 +30,7 @@ async function carregarGrafico(): Promise<DiaStats[]> {
   for (let i = 0; i < 14; i++) {
     const d = subDays(new Date(), 13 - i);
     const key = format(d, 'dd/MM');
-    mapa.set(key, { label: key, total: 0, ok: 0, falha: 0, queued: 0 });
+    mapa.set(key, { label: key, dataISO: format(d, 'yyyy-MM-dd'), total: 0, ok: 0, falha: 0, queued: 0 });
   }
 
   for (const r of registros) {

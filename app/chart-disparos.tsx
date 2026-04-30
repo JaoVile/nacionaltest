@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useMemo, useState } from 'react';
 import { InfoHint } from './components/InfoHint';
@@ -7,6 +8,7 @@ import { GLOSSARIO } from './dashboard/glossario';
 
 export interface DiaStats {
   label: string;
+  dataISO: string; // YYYY-MM-DD pra link de drill-down
   total: number;
   ok: number;
   falha: number;
@@ -83,15 +85,17 @@ export function ChartDisparos({ dias }: { dias: DiaStats[] }) {
               {diasFiltrados.map((d, i) => {
                 const maxTotal = Math.max(...diasFiltrados.map(x => x.total), 1);
                 const pct = (n: number) => (n / maxTotal) * 100;
-                return (
-                  <div key={d.label} className="flex-1 flex flex-col justify-end group relative h-full">
+                const clickable = d.total > 0;
+                const inner = (
+                  <>
                     <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-10">
                       <div className="surface-glass text-xs rounded-lg px-2.5 py-1.5 whitespace-nowrap shadow-elev-2
                                       text-slate-700 dark:text-ivory-200 font-mono">
                         {d.label}: {d.ok} entregues · {d.queued} aguardando · {d.falha} não entregues
+                        {clickable && <span className="ml-1.5 text-accent dark:text-accent-soft">↗ ver no histórico</span>}
                       </div>
                     </div>
-                    <div className="flex flex-col-reverse rounded-t overflow-hidden transition-transform duration-300 ease-out-expo group-hover:-translate-y-0.5">
+                    <div className="h-full flex flex-col-reverse rounded-t overflow-hidden transition-transform duration-300 ease-out-expo group-hover:-translate-y-0.5">
                       {d.falha > 0 && (
                         <motion.div
                           initial={{ height: 0 }}
@@ -118,6 +122,21 @@ export function ChartDisparos({ dias }: { dias: DiaStats[] }) {
                       )}
                       {d.total === 0 && <div style={{ height: '2px' }} className="bg-slate-200 dark:bg-ivory-200/15 rounded" />}
                     </div>
+                  </>
+                );
+                const baseClass = 'flex-1 flex flex-col justify-end group relative h-full';
+                return clickable ? (
+                  <Link
+                    key={d.label}
+                    href={`/historico?dia=${d.dataISO}`}
+                    aria-label={`Ver histórico de ${d.label} (${d.total} cobranças)`}
+                    className={`${baseClass} cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 rounded`}
+                  >
+                    {inner}
+                  </Link>
+                ) : (
+                  <div key={d.label} className={baseClass}>
+                    {inner}
                   </div>
                 );
               })}

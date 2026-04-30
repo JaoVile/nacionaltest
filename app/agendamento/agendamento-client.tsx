@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { CalendarClock, Clock, Play, Save, Sparkles, ListChecks, Zap } from 'lucide-react';
+import { CalendarClock, CheckCircle2, Clock, Play, Save, Sparkles, ListChecks, Search, XCircle, Zap } from 'lucide-react';
 import { useFeedbackAction } from '../components/useFeedbackAction';
 import { InfoHint } from '../components/InfoHint';
 import { ResumoPainel, type ResumoFiltros, aplicarFiltrosResumo } from '../components/ResumoPainel';
@@ -42,6 +42,10 @@ interface InitialState {
 interface Props {
   initial: InitialState;
   atendimentos: AtendimentoOption[];
+  dataInicial: string;
+  dataFinal: string;
+  janelaInicio: string;
+  janelaFim: string;
 }
 
 const DIAS = [
@@ -54,7 +58,9 @@ const DIAS = [
   { id: 6, label: 'Sáb' },
 ];
 
-export function AgendamentoClient({ initial, atendimentos }: Props) {
+export function AgendamentoClient({
+  initial, atendimentos, dataInicial, dataFinal, janelaInicio, janelaFim,
+}: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
@@ -65,7 +71,16 @@ export function AgendamentoClient({ initial, atendimentos }: Props) {
   const [minuto, setMinuto]         = useState(initial.minuto);
   const [placas, setPlacas]         = useState<Set<string>>(new Set(initial.placas));
   const [busca, setBusca]           = useState('');
+  const [periodoStart, setPeriodoStart] = useState(dataInicial);
+  const [periodoEnd, setPeriodoEnd]     = useState(dataFinal);
   const [resumoFiltros, setResumoFiltros] = useState<ResumoFiltros>({ prestadores: [], associacoes: [], cnpjs: [] });
+
+  function buscarPeriodo() {
+    const p = new URLSearchParams();
+    if (periodoStart) p.set('dataInicial', periodoStart);
+    if (periodoEnd)   p.set('dataFinal',   periodoEnd);
+    startTransition(() => router.push(`/agendamento?${p.toString()}`));
+  }
 
   const dirty = useMemo(() => {
     if (ativo  !== initial.ativo)  return true;
@@ -162,13 +177,55 @@ export function AgendamentoClient({ initial, atendimentos }: Props) {
   );
 
   const cronExpr = `${minuto} ${hora} * * ${Array.from(dias).sort().join(',') || '*'}`;
-  const proximaExecLabel = formatProximaExec(initial.proximaExec, ativo);
-  const ultimaExecLabel  = formatUltimaExec(initial.ultimaExec);
+  const proximaExecLabel    = formatProximaExec(initial.proximaExec, ativo);
+  const proximaExecRelativo = formatRelativo(initial.proximaExec);
+  const ultimaExecLabel     = formatUltimaExec(initial.ultimaExec);
   const placasSelecionadasCount = placas.size;
 
   return (
     <>
     <ResumoPainel items={itensResumo} contexto="agendamento" onFiltrosChange={setResumoFiltros} />
+
+    {/* SELETOR DE PERÍODO + BUSCA */}
+    <div className="card mb-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-sm font-medium text-slate-700 dark:text-ivory-200">Quais atendimentos buscar:</span>
+        <input
+          type="date"
+          className="form-input w-full sm:w-40"
+          value={periodoStart}
+          onChange={(e) => setPeriodoStart(e.target.value)}
+          aria-label="Data inicial"
+        />
+        <span className="text-slate-400 dark:text-ivory-500 text-sm">até</span>
+        <input
+          type="date"
+          className="form-input w-full sm:w-40"
+          value={periodoEnd}
+          onChange={(e) => setPeriodoEnd(e.target.value)}
+          aria-label="Data final"
+        />
+        <button className="btn-outline text-sm" onClick={buscarPeriodo}>Buscar</button>
+        <span className="text-xs text-slate-400 dark:text-ivory-500 ml-auto font-mono tabular-nums">
+          {janelaInicio || '—'} → {janelaFim || '—'} · {atendimentos.length} encontrados
+        </span>
+      </div>
+      <div className="mt-3 relative">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-ivory-500 pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Buscar por placa, modelo ou prestador…"
+          className="form-input pl-9"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          aria-label="Buscar atendimentos"
+        />
+      </div>
+      <p className="mt-2 text-[11px] text-slate-500 dark:text-ivory-500">
+        Filtra a lista exibida e o resumo. O cron usa o período padrão configurado em <a href="/config" className="underline underline-offset-2 hover:text-accent">Configurações</a>.
+      </p>
+    </div>
+
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* COL ESQUERDA: configuração principal */}
       <div className="lg:col-span-2 space-y-4">
@@ -300,13 +357,6 @@ export function AgendamentoClient({ initial, atendimentos }: Props) {
 
           {modo === 'selecionados' && (
             <div className="space-y-3">
-              <input
-                type="text"
-                placeholder="Buscar placa, modelo ou prestador…"
-                className="form-input"
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-              />
               <div className="rounded-xl border border-mist-200 dark:border-ivory-200/10 max-h-72 overflow-auto">
                 {atendimentosFiltrados.length === 0 ? (
                   <div className="px-3 py-8 text-center text-sm text-slate-500 dark:text-ivory-500">
@@ -391,13 +441,23 @@ export function AgendamentoClient({ initial, atendimentos }: Props) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
         >
-          <h3 className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-500 dark:text-ivory-500 mb-3">
-            Próxima execução
-          </h3>
+          <div className="flex items-center gap-2 mb-3">
+            <CalendarClock size={14} className="text-accent dark:text-accent-soft" />
+            <h3 className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-500 dark:text-ivory-500">
+              Próxima execução
+            </h3>
+          </div>
           {initial.ativo ? (
-            <p className="font-display text-xl sm:text-2xl text-slate-900 dark:text-ivory-200 leading-tight">
-              {proximaExecLabel}
-            </p>
+            <>
+              <p className="font-display text-xl sm:text-2xl text-slate-900 dark:text-ivory-200 leading-tight">
+                {proximaExecLabel}
+              </p>
+              {proximaExecRelativo && (
+                <p className="mt-1.5 text-xs text-slate-500 dark:text-ivory-500">
+                  {proximaExecRelativo}
+                </p>
+              )}
+            </>
           ) : (
             <p className="text-sm text-slate-500 dark:text-ivory-500">
               Agendamento desligado. Ative e salve para começar.
@@ -411,18 +471,37 @@ export function AgendamentoClient({ initial, atendimentos }: Props) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
         >
-          <h3 className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-500 dark:text-ivory-500 mb-3">
-            Última execução
-          </h3>
+          <div className="flex items-center gap-2 mb-3">
+            <Clock size={14} className="text-slate-400 dark:text-ivory-500" />
+            <h3 className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-500 dark:text-ivory-500">
+              Última execução
+            </h3>
+          </div>
           {!initial.ultimaExec ? (
             <p className="text-sm text-slate-500 dark:text-ivory-500">Ainda não rodou.</p>
           ) : (
-            <div className="space-y-2 text-sm">
-              <p className="text-slate-700 dark:text-ivory-300">{ultimaExecLabel}</p>
-              <div className="flex flex-wrap gap-3 font-mono tabular-nums text-xs">
-                <Stat label="Total"     value={initial.ultimoTotal ?? 0} />
-                <Stat label="Entregues" value={initial.ultimoOk ?? 0} tone="success" />
-                <Stat label="Falhas"    value={initial.ultimoFalha ?? 0} tone={initial.ultimoFalha ? 'danger' : 'neutral'} />
+            <div className="space-y-3">
+              <p className="text-sm text-slate-700 dark:text-ivory-300 font-mono tabular-nums">
+                {ultimaExecLabel}
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                <StatTile
+                  label="Total"
+                  value={initial.ultimoTotal ?? 0}
+                  icon={<ListChecks size={12} />}
+                />
+                <StatTile
+                  label="Entregues"
+                  value={initial.ultimoOk ?? 0}
+                  tone="success"
+                  icon={<CheckCircle2 size={12} />}
+                />
+                <StatTile
+                  label="Falhas"
+                  value={initial.ultimoFalha ?? 0}
+                  tone={initial.ultimoFalha ? 'danger' : 'neutral'}
+                  icon={<XCircle size={12} />}
+                />
               </div>
               {initial.ultimoErro && (
                 <div className="rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/25 p-2.5 text-xs text-rose-700 dark:text-rose-300">
@@ -439,13 +518,16 @@ export function AgendamentoClient({ initial, atendimentos }: Props) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.24, ease: [0.16, 1, 0.3, 1] }}
         >
-          <h3 className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-500 dark:text-ivory-500 mb-3">
-            <Play size={12} className="inline mr-1 mb-0.5" /> Como funciona
-          </h3>
-          <ol className="text-xs text-slate-600 dark:text-ivory-400 space-y-2 leading-relaxed list-decimal list-inside">
+          <div className="flex items-center gap-2 mb-3">
+            <Play size={12} className="text-slate-400 dark:text-ivory-500" />
+            <h3 className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-500 dark:text-ivory-500">
+              Como funciona
+            </h3>
+          </div>
+          <ol className="text-xs text-slate-600 dark:text-ivory-400 space-y-2 leading-relaxed list-decimal list-inside marker:text-slate-400 dark:marker:text-ivory-500">
             <li>O scheduler do servidor checa o cron a cada minuto.</li>
             <li>Quando bate o horário, busca atendimentos da DevSul e dispara cada cobrança via WhatsApp.</li>
-            <li>Resultados aparecem em <span className="font-semibold">Histórico</span> com origem <code className="font-mono">AUTO</code>.</li>
+            <li>Resultados aparecem em <span className="font-semibold">Histórico</span> com origem <code className="font-mono text-[10px] px-1 py-0.5 rounded bg-mist-100 dark:bg-deep-50">AUTO</code>.</li>
             <li>Se o servidor cair, o scheduler retoma quando subir.</li>
           </ol>
         </motion.div>
@@ -483,17 +565,33 @@ function ModoCard({
   );
 }
 
-function Stat({
-  label, value, tone = 'neutral',
-}: { label: string; value: number; tone?: 'success' | 'danger' | 'neutral' }) {
-  const color =
+function StatTile({
+  label, value, icon, tone = 'neutral',
+}: {
+  label: string;
+  value: number;
+  icon?: React.ReactNode;
+  tone?: 'success' | 'danger' | 'neutral';
+}) {
+  const valueColor =
     tone === 'success' ? 'text-emerald-600 dark:text-emerald-400'
     : tone === 'danger' ? 'text-rose-600 dark:text-rose-400'
     : 'text-slate-900 dark:text-ivory-200';
+  const iconColor =
+    tone === 'success' ? 'text-emerald-500/70 dark:text-emerald-400/70'
+    : tone === 'danger' ? 'text-rose-500/70 dark:text-rose-400/70'
+    : 'text-slate-400 dark:text-ivory-500';
+  const ring =
+    tone === 'success' ? 'border-emerald-200/60 dark:border-emerald-500/20'
+    : tone === 'danger' ? 'border-rose-200/60 dark:border-rose-500/25'
+    : 'border-mist-200 dark:border-ivory-200/10';
   return (
-    <div className="flex flex-col">
-      <span className="text-[0.6rem] uppercase tracking-wider text-slate-500 dark:text-ivory-500">{label}</span>
-      <span className={`text-base font-bold ${color}`}>{value}</span>
+    <div className={`rounded-lg border ${ring} bg-mist-50/50 dark:bg-deep-50/40 px-2.5 py-2`}>
+      <div className={`flex items-center gap-1 text-[10px] uppercase tracking-wider font-mono font-semibold text-slate-500 dark:text-ivory-500`}>
+        {icon && <span className={iconColor}>{icon}</span>}
+        <span className="truncate">{label}</span>
+      </div>
+      <div className={`mt-1 text-lg font-bold tabular-nums leading-none ${valueColor}`}>{value}</div>
     </div>
   );
 }
@@ -519,4 +617,20 @@ function formatProximaExec(iso: string | null, ativo: boolean): string {
 function formatUltimaExec(iso: string | null): string {
   if (!iso) return '—';
   return DT_FMT.format(new Date(iso));
+}
+
+function formatRelativo(iso: string | null): string | null {
+  if (!iso) return null;
+  const target = new Date(iso).getTime();
+  const now    = Date.now();
+  const diffMs = target - now;
+  if (Math.abs(diffMs) < 60_000) return 'agora';
+  const abs = Math.abs(diffMs);
+  const min = Math.round(abs / 60_000);
+  const hr  = Math.round(abs / 3_600_000);
+  const dia = Math.round(abs / 86_400_000);
+  const prefix = diffMs > 0 ? 'em' : 'há';
+  if (min < 60)   return `${prefix} ${min} min`;
+  if (hr  < 24)   return `${prefix} ${hr} h`;
+  return `${prefix} ${dia} dia${dia === 1 ? '' : 's'}`;
 }
