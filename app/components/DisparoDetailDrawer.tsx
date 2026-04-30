@@ -38,6 +38,12 @@ export interface DisparoFull {
   rawAtendimento: string | null;
   elapsedMs: number | null;
   origem: string;
+  concluirEm: string | null;
+  concluidoEm: string | null;
+  concluidoOk: boolean | null;
+  concluidoHttpStatus: number | null;
+  concluidoResponse: string | null;
+  respostaDetectada: boolean | null;
   eventos: Array<{
     id: string;
     status: string;
@@ -206,6 +212,12 @@ export function DisparoDetailDrawer({ disparoId, onClose }: Props) {
             </Section>
           )}
 
+          {(disparo.concluirEm || disparo.concluidoEm) && (
+            <Section title="Auto-conclusão da conversa" defaultOpen={disparo.concluidoEm == null}>
+              <AutoCompleteBlock disparo={disparo} />
+            </Section>
+          )}
+
           <Section title={`Linha do tempo (${disparo.eventos.length} ${disparo.eventos.length === 1 ? 'evento' : 'eventos'})`} defaultOpen>
             <Timeline events={timelineEvents} />
           </Section>
@@ -216,6 +228,7 @@ export function DisparoDetailDrawer({ disparoId, onClose }: Props) {
             raw={disparo.responseBody}
           />
           {disparo.statusCheckBody && <JsonSection title="Dados técnicos — consulta de status depois" raw={disparo.statusCheckBody} />}
+          {disparo.concluidoResponse && <JsonSection title="Dados técnicos — resposta do PUT complete" raw={disparo.concluidoResponse} />}
           <JsonSection title="Dados técnicos — atendimento original da DevSul" raw={disparo.rawAtendimento} />
 
           {auditLogs.length > 0 && (
@@ -360,6 +373,58 @@ function Item({
           </button>
         )}
       </dd>
+    </div>
+  );
+}
+
+function AutoCompleteBlock({ disparo }: { disparo: DisparoFull }) {
+  const pendente = disparo.concluirEm && !disparo.concluidoEm;
+  const concluido = !!disparo.concluidoEm;
+  const okFinal = concluido && disparo.concluidoOk === true;
+  const erroFinal = concluido && disparo.concluidoOk === false;
+
+  return (
+    <div className="space-y-3">
+      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+        <Item
+          label="Status"
+          value={
+            pendente
+              ? `Aguardando — agendado para ${fmtDateTime(disparo.concluirEm!)}`
+              : okFinal
+              ? `Conversa concluída em ${fmtDateTime(disparo.concluidoEm!)}`
+              : erroFinal
+              ? `Falhou em ${fmtDateTime(disparo.concluidoEm!)}`
+              : '—'
+          }
+        />
+        {disparo.concluidoHttpStatus != null && (
+          <Item label="Código HTTP" value={disparo.concluidoHttpStatus} mono />
+        )}
+        {disparo.respostaDetectada !== null && disparo.respostaDetectada !== undefined && (
+          <div className="sm:col-span-2">
+            <div
+              className={`rounded-lg p-3 text-sm border ${
+                disparo.respostaDetectada
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900 dark:bg-emerald-500/10 dark:border-emerald-500/25 dark:text-emerald-200'
+                  : 'bg-slate-50 border-slate-200 text-slate-700 dark:bg-ivory-200/[0.04] dark:border-ivory-200/15 dark:text-ivory-200'
+              }`}
+            >
+              {disparo.respostaDetectada ? (
+                <>
+                  <strong>Prestador respondeu</strong> durante a janela de espera (detectado pelo
+                  campo <code className="font-mono">lastMessageIn</code> da conversa).
+                </>
+              ) : (
+                <>
+                  Sem resposta do prestador durante a janela. Conversa foi concluída
+                  {disparo.concluidoResponse ? ' (com reabertura automática se ele responder depois)' : ''}.
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </dl>
     </div>
   );
 }

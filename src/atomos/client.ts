@@ -1,11 +1,14 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import { loadConfig } from '../config';
 import { logger } from '../logger';
+import { mascararTelefoneShort } from '../../lib/pii';
 import type {
   SendMessageRequest,
   SendMessageResponse,
   MessageStatusResponse,
   TemplateValues,
+  CompleteSessionRequest,
+  SessionDTO,
 } from './types';
 
 function makeHttp(): AxiosInstance {
@@ -59,7 +62,11 @@ export async function sendTemplate({ to, values, senderId, signal }: SendArgs): 
     const ax = err as AxiosError;
     const status = ax.response?.status ?? null;
     const body = ax.response?.data ?? ax.message;
-    logger.error({ status, body, to, sentPayload: payload }, 'AtomosChat: falha ao enviar');
+    // LGPD: mascara telefone destinatário; payload completo é redactado por pino.
+    logger.error(
+      { status, body, toMask: mascararTelefoneShort(to) },
+      'AtomosChat: falha ao enviar',
+    );
     return {
       ok: false,
       status,
@@ -116,5 +123,61 @@ export async function getMessageStatus(
       'AtomosChat: falha ao consultar status',
     );
     return null;
+  }
+}
+
+export interface CompleteSessionResult {
+  ok: boolean;
+  status: number | null;
+  request: CompleteSessionRequest;
+  response: SessionDTO | string | null;
+  error?: string;
+  elapsedMs: number;
+}
+
+/**
+ * Encerra uma conversa via PUT /chat/v1/session/{id}/complete.
+ *
+ * Estratégia de detecção indireta de resposta: o response (PublicSessionDTO)
+ * traz `lastMessageIn` — se for posterior ao timestamp de envio, o prestador
+ * respondeu durante a janela de espera. Use `reactivateOnNewMessage: true`
+ * para garantir que respostas posteriores reabram a conversa naturalmente.
+ */
+export async function completeSession(
+  sessionId: string,
+  body: CompleteSessionRequest,
+  signal?: AbortSignal,
+): Promise<CompleteSessionResult> {
+  const http = makeHttp();
+  const started = Date.now();
+  try {
+    const { status, data } = await http.put<SessionDTO>(
+      `/chat/v1/session/${sessionId}/complete`,
+      body,
+      { signal },
+    );
+    return {
+      ok: true,
+      status,
+      request: body,
+      response: data,
+      elapsedMs: Date.now() - started,
+    };
+  } catch (err) {
+    const ax = err as AxiosError;
+    const status = ax.response?.status ?? null;
+    const respBody = ax.response?.data ?? ax.message;
+    logger.error(
+      { sessionId, status, body: respBody },
+      'AtomosChat: falha ao concluir sessão',
+    );
+    return {
+      ok: false,
+      status,
+      request: body,
+      response: (respBody as SessionDTO | string) ?? null,
+      error: ax.message,
+      elapsedMs: Date.now() - started,
+    };
   }
 }

@@ -40,5 +40,32 @@ export interface MessageStatusResponse {
   failureReason?: string | null;
   createdAt: string;
   updatedAt: string;
+  sessionId?: string | null;
+  [key: string]: unknown;
+}
+
+/** Body do PUT /chat/v1/session/{id}/complete (PublicReqCompleteSessionDTO). */
+export interface CompleteSessionRequest {
+  /** Conversa reabre se contato mandar nova mensagem após o complete. Default false na API; usamos true. */
+  reactivateOnNewMessage?: boolean;
+  /** Interrompe chatbot em execução. Default false. */
+  stopBotInExecution?: boolean;
+}
+
+/** Subset do PublicSessionDTO que nos importa para detecção indireta de resposta. */
+export interface SessionDTO {
+  id: string;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  startAt?: string;
+  endAt?: string | null;
+  /** Última mensagem enviada por nós (out). */
+  lastMessageOut?: string | null;
+  /** Última mensagem recebida do contato (in). Se posterior ao envio, o prestador respondeu. */
+  lastMessageIn?: string | null;
+  lastInteractionDate?: string | null;
+  unreadCount?: number;
+  windowStatus?: 'ACTIVE' | 'EXPIRED' | 'NOT_STARTED' | string;
   [key: string]: unknown;
 }

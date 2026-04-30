@@ -91,6 +91,12 @@ export async function runOnce(): Promise<RunSummary> {
     await sleep(cfg.SEND_DELAY_MS);
   }
 
+  if (cfg.ATOMOS_AUTOCOMPLETE_ENABLED) {
+    logger.info(
+      'Auto-conclusão de conversa só roda via painel web (lib/autocomplete.ts depende de Prisma + processo persistente). Rode pelo /agendamento ou /disparos para que o PUT /v1/session/{id}/complete seja agendado.',
+    );
+  }
+
   logger.info({ summary }, 'Rodada concluída');
   return summary;
 }

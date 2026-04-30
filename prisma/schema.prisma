@@ -56,6 +56,21 @@ model Disparo {
   // Origem
   origem             String        // "UI" | "CLI" | "CRON"
 
+  // Auto-conclusão de conversa (PUT /v1/session/{id}/complete após delay)
+  /// Quando o complete deve ser executado (createdAt + DELAY_MS). null = não agendado.
+  concluirEm         DateTime?
+  /// Quando o complete foi efetivamente executado. null = pendente.
+  concluidoEm        DateTime?
+  /// true se o PUT retornou 2xx, false se erro, null se ainda não rodou.
+  concluidoOk        Boolean?
+  /// JSON do PublicSessionDTO retornado pelo PUT complete.
+  concluidoResponse  String?
+  /// HTTP status do PUT complete.
+  concluidoHttpStatus Int?
+  /// Detectado por lastMessageIn > createdAt no PublicSessionDTO retornado.
+  /// true = prestador respondeu durante a janela; false = não respondeu; null = não checado.
+  respostaDetectada  Boolean?
+
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
@@ -64,6 +79,7 @@ model Disparo {
   @@index([atendimentoId])
   @@index([ultimoStatus])
   @@index([createdAt])
+  @@index([concluirEm, concluidoEm])
 }
 
 /// Histórico de mudanças de status de um disparo (timeline QUEUED → SENT → DELIVERED).
