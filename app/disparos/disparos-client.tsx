@@ -43,6 +43,7 @@ interface DisparoResponse {
     encontrados: number;
     naoEncontrados: string[];
     enviadosOk: number;
+    queued: number;
     falhas: number;
     testMode: boolean;
     destinoTeste: string | null;
@@ -256,6 +257,7 @@ export function DisparosClient({
               encontrados: Number(ev.total),
               naoEncontrados: [],
               enviadosOk: Number(ev.enviadosOk),
+              queued: Number(ev.queued ?? 0),
               falhas: Number(ev.falhas),
               testMode: Boolean(ev.testMode),
               destinoTeste: (ev.destinoTeste as string | null) ?? null,
@@ -587,9 +589,10 @@ function PreviewMensagem({
 function ResultadoBody({ resumo }: { resumo: DisparoResponse['resumo'] }) {
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <Stat label="Selecionados"   value={resumo.selecionados} />
         <Stat label="Entregues"      value={resumo.enviadosOk} tone="success" />
+        <Stat label="Em fila"        value={resumo.queued} tone={resumo.queued > 0 ? 'queued' : 'neutral'} />
         <Stat label="Não entregues"  value={resumo.falhas} tone={resumo.falhas > 0 ? 'danger' : 'neutral'} />
       </div>
       {resumo.testMode && resumo.destinoTeste && (
@@ -602,10 +605,11 @@ function ResultadoBody({ resumo }: { resumo: DisparoResponse['resumo'] }) {
   );
 }
 
-function Stat({ label, value, tone = 'neutral' }: { label: string; value: number; tone?: 'success' | 'danger' | 'neutral' }) {
+function Stat({ label, value, tone = 'neutral' }: { label: string; value: number; tone?: 'success' | 'danger' | 'queued' | 'neutral' }) {
   const color =
     tone === 'success' ? 'text-emerald-600 dark:text-emerald-400'
-    : tone === 'danger' ? 'text-rose-600 dark:text-rose-400'
+    : tone === 'danger'  ? 'text-rose-600 dark:text-rose-400'
+    : tone === 'queued'  ? 'text-amber-600 dark:text-amber-400'
     : 'text-slate-900 dark:text-ivory-100';
   return (
     <motion.div

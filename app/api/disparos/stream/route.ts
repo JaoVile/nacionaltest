@@ -297,6 +297,8 @@ export async function POST(req: NextRequest) {
 
       // --- LOOP PRINCIPAL ---
       let canceladoNoLoop = false;
+      let okLoop = 0;
+      let queuedLoop = 0;
       for (let idx = 0; idx < todosParaDisparar.length; idx++) {
         if (req.signal.aborted) {
           canceladoNoLoop = true;
@@ -311,6 +313,10 @@ export async function POST(req: NextRequest) {
         if (!r || r.aborted || req.signal.aborted) {
           canceladoNoLoop = true;
           break;
+        }
+        if (r.ok) {
+          if (r.statusRegistrado === 'QUEUED') queuedLoop++;
+          else okLoop++;
         }
         if (idx < todosParaDisparar.length - 1) {
           await sleep(cfg.SEND_DELAY_MS);
@@ -327,21 +333,14 @@ export async function POST(req: NextRequest) {
         return;
       }
 
-      const resultados = await prisma.disparo.findMany({
-        where: { createdAt: { gte: new Date(Date.now() - 5 * 60_000) }, origem: 'UI' },
-        select: { ultimoStatus: true },
-      });
-      const enviadosOk = resultados.filter((r) =>
-        ['DELIVERED', 'READ', 'SENT'].includes(r.ultimoStatus),
-      ).length;
-      const queued = resultados.filter((r) => r.ultimoStatus === 'QUEUED').length;
+      const falhasLoop = total - okLoop - queuedLoop;
 
       emit(controller, {
         type: 'done',
         total,
-        enviadosOk,
-        queued,
-        falhas: total - enviadosOk - queued,
+        enviadosOk: okLoop,
+        queued: queuedLoop,
+        falhas: falhasLoop,
         testMode: cfg.TEST_MODE,
         destinoTeste: cfg.TEST_MODE ? cfg.TEST_PHONE_NUMBER : null,
       });
@@ -353,9 +352,9 @@ export async function POST(req: NextRequest) {
         payload: parsed,
         metadata: {
           total,
-          enviadosOk,
-          queued,
-          falhas: total - enviadosOk - queued,
+          enviadosOk: okLoop,
+          queued: queuedLoop,
+          falhas: falhasLoop,
           testMode: cfg.TEST_MODE,
           gate: devePassarPorGate,
         },
