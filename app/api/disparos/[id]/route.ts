@@ -45,6 +45,8 @@ export async function GET(
       updatedAt:          disparo.updatedAt.toISOString(),
       dataAtendimento:    disparo.dataAtendimento.toISOString(),
       statusAtualizadoEm: disparo.statusAtualizadoEm?.toISOString() ?? null,
+      concluirEm:         disparo.concluirEm?.toISOString() ?? null,
+      concluidoEm:        disparo.concluidoEm?.toISOString() ?? null,
       eventos: disparo.eventos.map((e) => ({
         ...e,
         observadoEm: e.observadoEm.toISOString(),

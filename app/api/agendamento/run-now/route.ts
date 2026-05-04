@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '../../../../lib/auth';
 import { writeAudit } from '../../../../lib/audit';
 import { dispararAgora } from '../../../../lib/scheduler';
+import { checkRateLimit } from '../../../../lib/rate-limit';
+import { sanitizeError } from '../../../../lib/errors';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -14,6 +16,9 @@ export const runtime = 'nodejs';
 export async function POST(req: NextRequest) {
   const authed = await requireUser(req);
   if (authed instanceof NextResponse) return authed;
+
+  const rl = checkRateLimit(authed.email, '/api/agendamento/run-now');
+  if (!rl.ok) return rl.response!;
 
   const inicio = Date.now();
   try {
@@ -35,6 +40,6 @@ export async function POST(req: NextRequest) {
       statusCode: 500,
       errorMsg: msg,
     });
-    return NextResponse.json({ ok: false, erro: msg }, { status: 500 });
+    return sanitizeError(e, 500, 'Falha ao disparar rodada');
   }
 }

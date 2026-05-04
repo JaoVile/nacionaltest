@@ -5,6 +5,7 @@ import { prisma } from '../../../../lib/db';
 import { parseJsonBody } from '../../../../lib/api-validation';
 import { requireUser } from '../../../../lib/auth';
 import { writeAudit } from '../../../../lib/audit';
+import { checkRateLimit } from '../../../../lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -20,6 +21,9 @@ const BodySchema = z.object({
 export async function POST(req: NextRequest) {
   const authed = await requireUser(req);
   if (authed instanceof NextResponse) return authed;
+
+  const rl = checkRateLimit(authed.email, '/api/historico/refresh');
+  if (!rl.ok) return rl.response!;
 
   const body = await parseJsonBody(req, BodySchema);
   if (!body.ok) return body.response;

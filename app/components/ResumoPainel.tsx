@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ChevronDown, ChevronRight, Filter, Users, Building2, FileText,
@@ -14,8 +14,20 @@ interface Props {
   items: ItemResumo[];
   /** Identifica a tela: muda título e mostra "Por Status" só em historico. */
   contexto: 'disparos' | 'historico' | 'agendamento';
-  /** Callback opcional pra propagar filtros de drill-down pra tabela pai. */
-  onDrillDown?: (filtros: ResumoFiltros) => void;
+  /** Callback chamado SEMPRE que filtros mudam (controlado ou drill-down). Pai aplica nos seus dados. */
+  onFiltrosChange?: (filtros: ResumoFiltros) => void;
+}
+
+/** Aplica os filtros do painel num array genérico de itens. Helper exportado pro pai. */
+export function aplicarFiltrosResumo<T extends ItemResumo>(items: T[], f: ResumoFiltros): T[] {
+  return items.filter((i) => {
+    if (f.prestadores.length && !f.prestadores.includes(i.prestador)) return false;
+    if (f.associacoes.length && !f.associacoes.includes(i.associacao)) return false;
+    if (f.cnpjs.length        && !f.cnpjs.includes(i.cnpj))            return false;
+    if (f.valorMin !== undefined && i.valor < f.valorMin)              return false;
+    if (f.valorMax !== undefined && i.valor > f.valorMax)              return false;
+    return true;
+  });
 }
 
 export interface ResumoFiltros {
@@ -34,7 +46,7 @@ const ease = [0.16, 1, 0.3, 1] as const;
 const BRL = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const NUM = (n: number) => n.toLocaleString('pt-BR');
 
-export function ResumoPainel({ items, contexto, onDrillDown }: Props) {
+export function ResumoPainel({ items, contexto, onFiltrosChange }: Props) {
   const [aberto, setAberto] = useState(false);
   const [tab, setTab] = useState<Tab>('prestador');
 
@@ -53,16 +65,12 @@ export function ResumoPainel({ items, contexto, onDrillDown }: Props) {
     valorMax:    valorMax === '' ? undefined : Number(valorMax),
   }), [prestadoresSel, associacoesSel, cnpjsSel, valorMin, valorMax]);
 
-  const itemsFiltrados = useMemo(() => {
-    return items.filter((i) => {
-      if (filtros.prestadores.length && !filtros.prestadores.includes(i.prestador)) return false;
-      if (filtros.associacoes.length && !filtros.associacoes.includes(i.associacao)) return false;
-      if (filtros.cnpjs.length        && !filtros.cnpjs.includes(i.cnpj))            return false;
-      if (filtros.valorMin !== undefined && i.valor < filtros.valorMin)              return false;
-      if (filtros.valorMax !== undefined && i.valor > filtros.valorMax)              return false;
-      return true;
-    });
-  }, [items, filtros]);
+  // Propaga filtros pro pai a cada mudança (cascada com tabela principal).
+  const onChangeRef = useRef(onFiltrosChange);
+  useEffect(() => { onChangeRef.current = onFiltrosChange; }, [onFiltrosChange]);
+  useEffect(() => { onChangeRef.current?.(filtros); }, [filtros]);
+
+  const itemsFiltrados = useMemo(() => aplicarFiltrosResumo(items, filtros), [items, filtros]);
 
   const kpis = useMemo(() => calcKPIs(itemsFiltrados), [itemsFiltrados]);
   const linhasSlice = useMemo(() => sliceBy(itemsFiltrados, tab), [itemsFiltrados, tab]);
@@ -89,7 +97,6 @@ export function ResumoPainel({ items, contexto, onDrillDown }: Props) {
     if (campo === 'prestador') toggleSet(prestadoresSel, setPrestadoresSel, chave);
     if (campo === 'associacao') toggleSet(associacoesSel, setAssociacoesSel, chave);
     if (campo === 'cnpj')       toggleSet(cnpjsSel,       setCnpjsSel,       chave);
-    onDrillDown?.(filtros);
   }
 
   return (
@@ -281,28 +288,47 @@ function SliceRow({
   ativo: boolean;
 }) {
   const [expandido, setExpandido] = useState(false);
-  const sub = (campo === 'cnpj' ? linha.prestadoresAtrelados : campo === 'associacao' ? linha.cnpjsAtrelados : null) ?? [];
-  const hasSub = sub.length > 1;
+
+  // Texto do "dono" do CNPJ (inline na chave)
+  const subtitle =
+    campo === 'cnpj' && linha.associacoesAtreladas?.length
+      ? linha.associacoesAtreladas.join(' · ')
+      : campo === 'associacao' && linha.cnpjsAtrelados?.length
+      ? linha.cnpjsAtrelados.join(' · ')
+      : null;
 
   return (
     <div className={`border-b border-mist-100 dark:border-ivory-200/[0.05] last:border-b-0 transition-colors
                      ${ativo ? 'bg-accent/5 dark:bg-accent-deep/15' : 'hover:bg-mist-50 dark:hover:bg-ivory-200/[0.04]'}`}>
-      <div className="flex items-center gap-2 px-3 py-2 cursor-pointer" onClick={onClick}>
-        {hasSub && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setExpandido((v) => !v); }}
-            className="shrink-0 text-slate-400 dark:text-ivory-500 hover:text-accent"
-          >
-            <motion.span animate={{ rotate: expandido ? 90 : 0 }} transition={{ duration: 0.18 }} className="inline-flex">
-              <ChevronRight size={14} />
-            </motion.span>
-          </button>
-        )}
-        {!hasSub && <span className="w-3.5" />}
-        <span className={`flex-1 min-w-0 truncate ${campo === 'cnpj' ? 'font-mono' : ''} text-sm text-slate-700 dark:text-ivory-300`}>
-          {linha.chave || '—'}
-        </span>
+      <div className="flex items-center gap-2 px-3 py-2">
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setExpandido((v) => !v); }}
+          className="shrink-0 text-slate-400 dark:text-ivory-500 hover:text-accent"
+          title={expandido ? 'Esconder placas' : 'Ver placas deste grupo'}
+        >
+          <motion.span animate={{ rotate: expandido ? 90 : 0 }} transition={{ duration: 0.18 }} className="inline-flex">
+            <ChevronRight size={14} />
+          </motion.span>
+        </button>
+
+        <button
+          type="button"
+          onClick={onClick}
+          className="flex-1 min-w-0 text-left flex flex-col cursor-pointer"
+          title="Filtrar por este grupo"
+        >
+          <span className={`truncate ${campo === 'cnpj' ? 'font-mono' : ''} text-sm text-slate-700 dark:text-ivory-300`}>
+            {linha.chave || '—'}
+          </span>
+          {subtitle && (
+            <span className={`truncate text-[0.65rem] text-slate-500 dark:text-ivory-500 ${campo === 'associacao' ? 'font-mono' : ''}`}>
+              {campo === 'cnpj' ? <Building2 size={9} className="inline mb-0.5 mr-1" /> : <Hash size={9} className="inline mb-0.5 mr-1 font-mono" />}
+              {subtitle}
+            </span>
+          )}
+        </button>
+
         <span className="text-xs font-mono tabular-nums text-slate-500 dark:text-ivory-500 whitespace-nowrap">
           {NUM(linha.qtd)}×
         </span>
@@ -310,19 +336,53 @@ function SliceRow({
           {linha.somaValorFmt}
         </span>
       </div>
-      {hasSub && expandido && (
-        <div className="pl-9 pr-3 pb-2 text-xs text-slate-500 dark:text-ivory-400 space-y-0.5">
-          {sub.map((s) => (
-            <div key={s} className={`truncate ${campo === 'associacao' ? 'font-mono' : ''}`}>
-              {campo === 'cnpj' ? (
-                <><FileText size={10} className="inline mb-0.5 mr-1" />{s}</>
-              ) : (
-                <><Hash size={10} className="inline mb-0.5 mr-1 font-mono" />{s}</>
-              )}
+
+      <AnimatePresence initial={false}>
+        {expandido && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease }}
+            className="overflow-hidden"
+          >
+            <div className="ml-9 mr-3 mb-3 rounded-lg border border-mist-200 dark:border-ivory-200/10 bg-mist-50/40 dark:bg-deep-200/40 overflow-hidden">
+              <table className="w-full text-[0.7rem]">
+                <thead className="bg-mist-100/50 dark:bg-deep-50/40 text-slate-500 dark:text-ivory-500">
+                  <tr>
+                    <th className="px-2 py-1.5 text-left font-mono uppercase tracking-wider">Placa</th>
+                    <th className="px-2 py-1.5 text-left font-mono uppercase tracking-wider">Modelo</th>
+                    <th className="px-2 py-1.5 text-left font-mono uppercase tracking-wider">Prestador</th>
+                    <th className="px-2 py-1.5 text-left font-mono uppercase tracking-wider">Telefone</th>
+                    {campo !== 'associacao' && <th className="px-2 py-1.5 text-left font-mono uppercase tracking-wider">Associação</th>}
+                    {campo !== 'cnpj'       && <th className="px-2 py-1.5 text-left font-mono uppercase tracking-wider">CNPJ</th>}
+                    <th className="px-2 py-1.5 text-right font-mono uppercase tracking-wider">Valor</th>
+                    <th className="px-2 py-1.5 text-left font-mono uppercase tracking-wider">Data</th>
+                    {campo !== 'status' && <th className="px-2 py-1.5 text-left font-mono uppercase tracking-wider">Status</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {linha.itens.map((it) => (
+                    <tr key={it.id} className="border-t border-mist-100 dark:border-ivory-200/[0.04] text-slate-700 dark:text-ivory-300">
+                      <td className="px-2 py-1.5 font-mono font-semibold text-slate-900 dark:text-ivory-200">{it.placa}</td>
+                      <td className="px-2 py-1.5 truncate max-w-[140px]" title={String((it as ItemResumo & { modelo?: string }).modelo ?? '')}>
+                        {(it as ItemResumo & { modelo?: string }).modelo ?? '—'}
+                      </td>
+                      <td className="px-2 py-1.5 truncate max-w-[140px]" title={it.prestador}>{it.prestador || '—'}</td>
+                      <td className="px-2 py-1.5 font-mono tabular-nums">{it.telefone || '—'}</td>
+                      {campo !== 'associacao' && <td className="px-2 py-1.5 truncate max-w-[140px]" title={it.associacao}>{it.associacao || '—'}</td>}
+                      {campo !== 'cnpj'       && <td className="px-2 py-1.5 font-mono">{it.cnpj || '—'}</td>}
+                      <td className="px-2 py-1.5 text-right font-mono tabular-nums">{it.valorFmt}</td>
+                      <td className="px-2 py-1.5 font-mono">{it.dataFmt}</td>
+                      {campo !== 'status' && <td className="px-2 py-1.5">{it.status ?? '—'}</td>}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ))}
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -7,7 +7,11 @@ import { AutoRefresh } from '../components/AutoRefresh';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function AgendamentoPage() {
+export default async function AgendamentoPage({
+  searchParams,
+}: {
+  searchParams: { dataInicial?: string; dataFinal?: string };
+}) {
   const a = await prisma.agendamento.upsert({
     where: { id: 'default' },
     create: { id: 'default' },
@@ -18,8 +22,15 @@ export default async function AgendamentoPage() {
   const cronExpr = montarCronExpr(a.diasSemana, a.hora, a.minuto);
   const proxima = a.ativo ? proximaExecucao(a.diasSemana, a.hora, a.minuto) : null;
 
-  // Carrega atendimentos do período padrão pra mostrar como opções no modo "selecionados"
-  const { mapeaveis } = await carregarAtendimentos().catch(() => ({ mapeaveis: [], erro: null, ignorados: [], total: 0, somaValor: 0, dataInicial: '', dataFinal: '' }));
+  // Carrega atendimentos do período (ou padrão) pra mostrar como opções no modo "selecionados"
+  const dados = await carregarAtendimentos({
+    dataInicial: searchParams.dataInicial,
+    dataFinal:   searchParams.dataFinal,
+  }).catch(() => ({
+    mapeaveis: [], erro: null, ignorados: [], total: 0, somaValor: 0,
+    janelaInicio: '', janelaFim: '', itens: [],
+  }));
+  const { mapeaveis, janelaInicio, janelaFim } = dados;
 
   const atendimentosResumo = mapeaveis.map((m) => ({
     id: m.id,
@@ -63,6 +74,10 @@ export default async function AgendamentoPage() {
           ultimoErro: a.ultimoErro,
         }}
         atendimentos={atendimentosResumo}
+        dataInicial={searchParams.dataInicial ?? (janelaInicio ? janelaInicio.split('/').reverse().join('-') : '')}
+        dataFinal={searchParams.dataFinal ?? new Date().toISOString().slice(0, 10)}
+        janelaInicio={janelaInicio}
+        janelaFim={janelaFim}
       />
 
       <AutoRefresh intervalMs={180_000} />

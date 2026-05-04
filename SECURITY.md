@@ -142,3 +142,60 @@ Encontrou algo que parece um problema de segurança? **Não abra issue pública.
 - Impacto estimado.
 
 Resposta em até 72h.
+
+---
+
+## LGPD — postura de tratamento de dados pessoais
+
+### Dados pessoais tratados
+
+| Campo | Origem | Finalidade | Onde | Retenção |
+|-------|--------|-----------|------|----------|
+| Telefone do prestador | DevSul | Destinatário da mensagem WhatsApp | `Disparo.destinoReal`/`destinoEfetivo` (em claro) + payloads salvos (mascarado/hash) | 180 dias |
+| Nome do prestador | DevSul | Identificação no histórico | `Disparo.prestador` (em claro) | 180 dias |
+| Placa, modelo, valor | DevSul | Parâmetros do template | `Disparo.placa/modelo/valor` (em claro) | 180 dias |
+| CNPJ | Lookup local | Parâmetro do template | `Disparo.vCnpj` (variável enviada) | 180 dias |
+| IP do operador | HTTP request | Auditoria | `AuditLog.ip` (mascarado, últimos 2 octetos zerados) | 365 dias |
+| Email do operador | NextAuth | Identificar quem fez ação | `AuditLog.userEmail` | 365 dias |
+
+**Não tratamos:** CPF, RG, dados bancários, dados sensíveis (saúde, raça, religião, biometria).
+
+### Base legal
+
+**Execução de contrato** (art. 7º, V, LGPD) entre Nacional Assistência e prestador de serviço. A cobrança de NF é cláusula contratual; o telefone foi cadastrado pelo próprio prestador no DevSul.
+
+### Controles aplicados
+
+- **Mascaramento de PII**:
+  - Logs (pino) com `redact` em chaves de telefone/token (ver `src/logger.ts`).
+  - IP em `AuditLog` mascarado pra `xxx.xxx.0.0` (ver `lib/pii.ts::mascararIp`).
+  - Payloads salvos em `Disparo.requestPayload`/`responseBody`/`rawAtendimento`/`statusCheckBody`/`concluidoResponse` passam por `redactPayload()` (ver `lib/pii.ts`) — telefones viram `hash:<12hex>:••••<últimos4>`.
+- **Retenção automática**: cron diário 03:00 (`lib/scheduler.ts::aplicarPurga`) deleta `Disparo`+`StatusEvento` > 180d e `AuditLog` > 365d (`lib/purga.ts`).
+- **Auditoria**: toda ação mutadora grava em `AuditLog` (hash SHA-256 do payload, sem payload em claro).
+- **Direitos do titular** (art. 18):
+  - `GET /api/lgpd/inventario` — descreve o tratamento.
+  - `GET /api/lgpd/acesso?tel=<E.164>` — lista disparos do titular.
+  - `POST /api/lgpd/anonimizar` — substitui PII por hash, mantém id+timestamps para auditoria.
+  - **Eliminação** (art. 18, VI): aplicada automaticamente pela retenção. Solicitação imediata: usar `anonimizar` ou contato manual com responsável.
+
+### Compartilhamento com terceiros
+
+| Destinatário | Propósito | Hospedagem |
+|--------------|-----------|------------|
+| DevSul (`api.lnsoft.com.br`) | Consulta de atendimentos/regionais (entrada) | Brasil |
+| Atomos/Helena (`api.chat.atomos.tech`) | Envio de mensagens template via WhatsApp Cloud API (saída) | Brasil |
+
+**DPPA (Data Processing Agreement)**: validar que ambos têm cláusulas LGPD em contrato. Se não tiverem, exigir.
+
+### Encarregado (DPO)
+
+A definir formalmente. Contato interino: `your@email.com`.
+
+### Plano de resposta a incidente LGPD (ANPD Resolução 15/2024)
+
+Se houver vazamento confirmado de dados pessoais:
+1. **Conter** (≤ 1h): rotacionar tokens, isolar instâncias afetadas (ver "Procedimento em caso de incidente" acima).
+2. **Avaliar impacto** (≤ 24h): titulares afetados (count, categoria), dados expostos, vetor.
+3. **Notificar ANPD** (≤ 72h da descoberta): formulário oficial em https://www.gov.br/anpd, conforme Res. 15/2024.
+4. **Notificar titulares** (sem demora razoável quando risco alto a direitos/liberdades).
+5. **Pós-mortem** (≤ 7d): RCA, plano de remediação, atualização desta política.

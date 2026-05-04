@@ -11,7 +11,7 @@ import { StatChip, type StatChipTone } from '../components/StatChip';
 import { EmptyState } from '../components/EmptyState';
 import { useFeedbackAction } from '../components/useFeedbackAction';
 import { statusAtomosHumano } from '../dashboard/glossario';
-import { ResumoPainel } from '../components/ResumoPainel';
+import { ResumoPainel, type ResumoFiltros } from '../components/ResumoPainel';
 import { itemFromDisparo } from '../../lib/resumo-types';
 
 export interface DisparoRow {
@@ -38,6 +38,7 @@ export interface DisparoRow {
 interface Props {
   items: DisparoRow[];
   agregado: Record<string, number>;
+  diaFiltro?: string | null;
 }
 
 const STATUSES_DETALHE = ['QUEUED', 'SENT', 'READ', 'FAILED'] as const;
@@ -53,24 +54,30 @@ function matchFiltro(status: string, filtro: Filtro): boolean {
   return status === filtro;
 }
 
-export function HistoricoClient({ items, agregado }: Props) {
+export function HistoricoClient({ items, agregado, diaFiltro }: Props) {
   const router = useRouter();
   const [filtro, setFiltro] = useState<Filtro>('');
   const [busca, setBusca] = useState('');
   const buscaDeferred = useDeferredValue(busca);
   const [drawerId, setDrawerId] = useState<string | null>(null);
   const [verDetalhes, setVerDetalhes] = useState(false);
+  const [resumoFiltros, setResumoFiltros] = useState<ResumoFiltros>({ prestadores: [], associacoes: [], cnpjs: [] });
   const [, startTransition] = useTransition();
 
   const filtrados = useMemo(() => {
     const q = buscaDeferred.trim().toLowerCase();
     return items.filter((d) => {
       if (!matchFiltro(d.ultimoStatus, filtro)) return false;
+      // Filtros do ResumoPainel (cascata)
+      if (resumoFiltros.prestadores.length && !resumoFiltros.prestadores.includes(d.prestador ?? '')) return false;
+      if (resumoFiltros.valorMin !== undefined && d.valor < resumoFiltros.valorMin) return false;
+      if (resumoFiltros.valorMax !== undefined && d.valor > resumoFiltros.valorMax) return false;
+      // associacoes/cnpjs ficam fora aqui — Disparo não guarda esses campos (Phase 2)
       if (!q) return true;
       return [d.placa, d.prestador ?? '', d.atendimentoId, d.atomosMessageId ?? '']
         .some((c) => c.toLowerCase().includes(q));
     });
-  }, [items, filtro, buscaDeferred]);
+  }, [items, filtro, buscaDeferred, resumoFiltros]);
 
   const totalEntregues = (agregado.DELIVERED ?? 0) + (agregado.READ ?? 0);
   const totalErros     = (agregado.FAILED ?? 0)    + (agregado.ERROR ?? 0);
@@ -150,7 +157,24 @@ export function HistoricoClient({ items, agregado }: Props) {
 
   return (
     <>
-      <ResumoPainel items={itensResumo} contexto="historico" />
+      {diaFiltro && (
+        <div className="card mb-4 flex flex-wrap items-center gap-3 bg-accent/5 dark:bg-accent-deep/15 border-accent/30 dark:border-accent-deep/40">
+          <span className="text-sm text-slate-700 dark:text-ivory-200">
+            Filtrando disparos do dia <strong className="font-mono tabular-nums">{diaFiltro}</strong>
+            <span className="ml-2 text-slate-500 dark:text-ivory-400">
+              · {items.length} {items.length === 1 ? 'envio' : 'envios'} nesse dia
+            </span>
+          </span>
+          <a
+            href="/historico"
+            className="ml-auto text-xs font-mono font-semibold text-accent dark:text-accent-soft hover:underline"
+          >
+            Limpar filtro
+          </a>
+        </div>
+      )}
+
+      <ResumoPainel items={itensResumo} contexto="historico" onFiltrosChange={setResumoFiltros} />
 
       <div className="grid grid-cols-3 gap-3 mb-3">
         <StatChip label="Todos"     value={items.length}    active={filtro === ''}          onClick={() => setFiltro('')}                                          tone="default" delay={0}   />

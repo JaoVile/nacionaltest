@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import { prisma } from './db';
 import { logger } from '../src/logger';
 import { getClientIp, type AuthUser } from './auth';
+import { mascararIp } from './pii';
 
 export interface AuditInput {
   user: AuthUser | null;
@@ -34,7 +35,9 @@ export async function writeAudit({
   errorMsg,
 }: AuditInput): Promise<void> {
   try {
-    const ip = getClientIp(req);
+    // LGPD: mascarar últimos octetos pra preservar utilidade de auditoria
+    // sem manter identificação direta. Ver lib/pii.ts.
+    const ip = mascararIp(getClientIp(req));
     const userAgent = req.headers.get('user-agent') ?? null;
     const payloadHash =
       payload !== undefined ? sha256(JSON.stringify(payload)) : null;

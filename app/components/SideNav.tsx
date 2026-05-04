@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { ThemeToggle } from '../theme-toggle';
 import { SfxToggle } from './SfxToggle';
 import { RunStatePill } from './RunStatePill';
+import { UiScaleControl } from './UiScaleControl';
 
 interface Props {
   open: boolean;
@@ -79,11 +80,14 @@ export function SideNav({ open, onClose }: Props) {
           <NavLink href="/config" pathname={pathname} onClick={onClose}>Configurações</NavLink>
         </nav>
 
-        <div className="mt-auto px-2 flex items-center justify-between">
-          <span className="text-[0.6rem] font-mono text-slate-400 dark:text-ivory-500">v0.1.0</span>
-          <div className="flex items-center gap-2">
-            <SfxToggle />
-            <ThemeToggle />
+        <div className="mt-auto px-2 space-y-2">
+          <UiScaleControl />
+          <div className="flex items-center justify-between">
+            <span className="text-[0.6rem] font-mono text-slate-400 dark:text-ivory-500">v0.1.0</span>
+            <div className="flex items-center gap-2">
+              <SfxToggle />
+              <ThemeToggle />
+            </div>
           </div>
         </div>
 

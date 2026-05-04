@@ -89,9 +89,13 @@ export interface SliceLinha {
   qtd: number;
   somaValor: number;
   somaValorFmt: string;
-  /** Em "Por CNPJ", lista de prestadores atrelados àquele CNPJ. */
+  /** Itens completos do grupo — usados na expansão "ver tudo" */
+  itens: ItemResumo[];
+  /** Em "Por CNPJ": prestadores atrelados àquele CNPJ. */
   prestadoresAtrelados?: string[];
-  /** Em "Por Associação", lista de CNPJs sob aquela associação. */
+  /** Em "Por CNPJ": associações que usam aquele CNPJ (donos do CNPJ). */
+  associacoesAtreladas?: string[];
+  /** Em "Por Associação": CNPJs sob aquela associação. */
   cnpjsAtrelados?: string[];
 }
 
@@ -101,14 +105,24 @@ export function sliceBy(
   items: ItemResumo[],
   campo: 'prestador' | 'associacao' | 'cnpj' | 'status',
 ): SliceLinha[] {
-  const map = new Map<string, { qtd: number; soma: number; prestadores: Set<string>; cnpjs: Set<string> }>();
+  const map = new Map<string, {
+    qtd: number; soma: number;
+    prestadores: Set<string>; cnpjs: Set<string>; associacoes: Set<string>;
+    itens: ItemResumo[];
+  }>();
   for (const i of items) {
     const chave = (i[campo] || '—').toString();
-    const ent = map.get(chave) ?? { qtd: 0, soma: 0, prestadores: new Set(), cnpjs: new Set() };
+    const ent = map.get(chave) ?? {
+      qtd: 0, soma: 0,
+      prestadores: new Set<string>(), cnpjs: new Set<string>(), associacoes: new Set<string>(),
+      itens: [] as ItemResumo[],
+    };
     ent.qtd++;
     ent.soma += i.valor;
-    if (i.prestador) ent.prestadores.add(i.prestador);
-    if (i.cnpj) ent.cnpjs.add(i.cnpj);
+    ent.itens.push(i);
+    if (i.prestador)  ent.prestadores.add(i.prestador);
+    if (i.cnpj)       ent.cnpjs.add(i.cnpj);
+    if (i.associacao) ent.associacoes.add(i.associacao);
     map.set(chave, ent);
   }
   const linhas: SliceLinha[] = Array.from(map.entries()).map(([chave, v]) => ({
@@ -116,8 +130,12 @@ export function sliceBy(
     qtd: v.qtd,
     somaValor: v.soma,
     somaValorFmt: BRL(v.soma),
-    ...(campo === 'cnpj'       ? { prestadoresAtrelados: Array.from(v.prestadores).sort() } : {}),
-    ...(campo === 'associacao' ? { cnpjsAtrelados:       Array.from(v.cnpjs).sort() }       : {}),
+    itens: v.itens,
+    ...(campo === 'cnpj' ? {
+      prestadoresAtrelados: Array.from(v.prestadores).sort(),
+      associacoesAtreladas: Array.from(v.associacoes).sort(),
+    } : {}),
+    ...(campo === 'associacao' ? { cnpjsAtrelados: Array.from(v.cnpjs).sort() } : {}),
   }));
   linhas.sort((a, b) => b.somaValor - a.somaValor);
   return linhas;

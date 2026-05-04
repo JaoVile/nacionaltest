@@ -10,7 +10,7 @@ import { TemplatePreview } from './TemplatePreview';
 import { AnimatedModal } from '../components/AnimatedModal';
 import { InfoHint } from '../components/InfoHint';
 import { GLOSSARIO } from '../dashboard/glossario';
-import { ResumoPainel } from '../components/ResumoPainel';
+import { ResumoPainel, type ResumoFiltros, aplicarFiltrosResumo } from '../components/ResumoPainel';
 import { itemFromAtendimento } from '../../lib/resumo-types';
 
 interface Props {
@@ -43,6 +43,7 @@ interface DisparoResponse {
     encontrados: number;
     naoEncontrados: string[];
     enviadosOk: number;
+    queued: number;
     falhas: number;
     testMode: boolean;
     destinoTeste: string | null;
@@ -83,6 +84,7 @@ export function DisparosClient({
   });
   const abortCtrlRef = useRef<AbortController | null>(null);
   const previewAsideRef = useRef<HTMLElement | null>(null);
+  const [resumoFiltros, setResumoFiltros] = useState<ResumoFiltros>({ prestadores: [], associacoes: [], cnpjs: [] });
 
   // Auto-scroll do preview pra dentro da viewport em telas pequenas (< md, onde o aside fica embaixo da tabela).
   useEffect(() => {
@@ -101,12 +103,21 @@ export function DisparosClient({
 
   const filtrados = useMemo(() => {
     const todos = [...mapeaveis, ...manuais];
+    // Cast pra ItemResumo-compatible (mapeaveis/manuais já têm os mesmos campos relevantes)
+    const aposResumo = aplicarFiltrosResumo(
+      todos.map((a) => ({
+        ...a,
+        // ItemResumo precisa de dataAtendimento — usamos dataISO
+        dataAtendimento: a.dataISO,
+      })),
+      resumoFiltros,
+    );
     const q = buscaDeferred.trim().toLowerCase();
-    if (!q) return todos;
-    return todos.filter((a) =>
+    if (!q) return aposResumo as typeof todos;
+    return (aposResumo as typeof todos).filter((a) =>
       [a.placa, a.modelo, a.prestador, a.id].some((c) => c.toLowerCase().includes(q)),
     );
-  }, [buscaDeferred, mapeaveis, manuais]);
+  }, [buscaDeferred, mapeaveis, manuais, resumoFiltros]);
 
   const itensResumo = useMemo(
     () => [...mapeaveis, ...manuais].map(itemFromAtendimento),
@@ -246,6 +257,7 @@ export function DisparosClient({
               encontrados: Number(ev.total),
               naoEncontrados: [],
               enviadosOk: Number(ev.enviadosOk),
+              queued: Number(ev.queued ?? 0),
               falhas: Number(ev.falhas),
               testMode: Boolean(ev.testMode),
               destinoTeste: (ev.destinoTeste as string | null) ?? null,
@@ -274,7 +286,7 @@ export function DisparosClient({
 
   return (
     <>
-      <ResumoPainel items={itensResumo} contexto="disparos" />
+      <ResumoPainel items={itensResumo} contexto="disparos" onFiltrosChange={setResumoFiltros} />
 
       {/* SELETOR DE PERÍODO */}
       <div className="card mb-4">
@@ -396,7 +408,7 @@ export function DisparosClient({
                         <td className="px-3 py-3 truncate max-w-[180px] hidden lg:table-cell text-slate-700 dark:text-ivory-300" title={a.prestador}>
                           {a.prestador}
                         </td>
-                        <td className="px-3 py-3 font-mono text-slate-500 dark:text-ivory-500 hidden sm:table-cell">{a.telefoneMask}</td>
+                        <td className="px-3 py-3 font-mono tabular-nums text-slate-700 dark:text-ivory-300 hidden sm:table-cell" title={`Telefone real do prestador: ${a.telefone}`}>{a.telefone}</td>
                       </motion.tr>
                     );
                   })}
@@ -577,9 +589,10 @@ function PreviewMensagem({
 function ResultadoBody({ resumo }: { resumo: DisparoResponse['resumo'] }) {
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <Stat label="Selecionados"   value={resumo.selecionados} />
         <Stat label="Entregues"      value={resumo.enviadosOk} tone="success" />
+        <Stat label="Em fila"        value={resumo.queued} tone={resumo.queued > 0 ? 'queued' : 'neutral'} />
         <Stat label="Não entregues"  value={resumo.falhas} tone={resumo.falhas > 0 ? 'danger' : 'neutral'} />
       </div>
       {resumo.testMode && resumo.destinoTeste && (
@@ -592,10 +605,11 @@ function ResultadoBody({ resumo }: { resumo: DisparoResponse['resumo'] }) {
   );
 }
 
-function Stat({ label, value, tone = 'neutral' }: { label: string; value: number; tone?: 'success' | 'danger' | 'neutral' }) {
+function Stat({ label, value, tone = 'neutral' }: { label: string; value: number; tone?: 'success' | 'danger' | 'queued' | 'neutral' }) {
   const color =
     tone === 'success' ? 'text-emerald-600 dark:text-emerald-400'
-    : tone === 'danger' ? 'text-rose-600 dark:text-rose-400'
+    : tone === 'danger'  ? 'text-rose-600 dark:text-rose-400'
+    : tone === 'queued'  ? 'text-amber-600 dark:text-amber-400'
     : 'text-slate-900 dark:text-ivory-100';
   return (
     <motion.div

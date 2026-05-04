@@ -34,6 +34,18 @@ const schema = z.object({
 
   // Agendamento (opcional). Ex: "0 9 * * *" = todo dia às 09:00
   CRON_SCHEDULE: z.string().optional(),
+
+  // Auto-conclusão de conversa (PUT /chat/v1/session/{id}/complete)
+  // Após cada envio OK, agenda PUT complete depois do delay para liberar a sessão.
+  // Como não há endpoint público de "listar mensagens da conversa", a detecção de
+  // resposta é indireta: o response do complete (PublicSessionDTO) traz lastMessageIn
+  // — se for posterior ao envio, prestador respondeu durante a janela.
+  ATOMOS_AUTOCOMPLETE_ENABLED:    z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
+  ATOMOS_AUTOCOMPLETE_DELAY_MS:   z.coerce.number().int().nonnegative().default(70_000),
+  // reactivateOnNewMessage: se true, conversa concluída reabre quando o contato responder depois.
+  ATOMOS_AUTOCOMPLETE_REACTIVATE: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
+  // stopBotInExecution: se true, interrompe chatbot em execução ao concluir.
+  ATOMOS_AUTOCOMPLETE_STOP_BOT:   z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
 });
 
 export type AppConfig = z.infer<typeof schema>;

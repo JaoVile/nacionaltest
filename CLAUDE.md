@@ -162,7 +162,7 @@ Confirmação do probe (2026-04-27, `tmp/devsul_regionais.json`) — 9 regionais
 - **Stack:** Next.js 14 + React 18 + TypeScript + Prisma + Tailwind. Runner CLI paralelo (`src/index.ts`).
 - **Mapeamento DevSul → template:** ver §3 (7 variáveis, template `notafiscal`, ID `6b5df_notafiscal`).
 - **CNPJ:** lookup local manual (ver §4), não via DevSul.
-- **Auto-conclusão de atendimento ao receber resposta:** nativa do Atomos, não implementar.
+- **Auto-conclusão de atendimento ao receber resposta:** nativa do Atomos. Adicional: **auto-conclusão programática 70s após disparo** (ver §11).
 - **Log de processamento (RF.07):** gravado na tabela `Disparo` do Prisma — request, response, http status, timeline e raw DevSul (ver §8).
 - **Modo de teste homologado (RF.03):** primeiro envio sempre vai pro `TEST_PHONE_NUMBER` quando `TEST_MODE=false`, com gate de 15s antes de liberar os reais (ver §8).
 - **Payload Atomos `/chat/v1/message/send`:** `{ to, from, body: { templateId, parameters } }` — validado em produção.
@@ -541,6 +541,129 @@ Painel de agregação + filtros + drill-down embutido em `/disparos`, `/historic
 - **Histórico não tem `associacao`/`cnpj` no modelo `Disparo`**: por enquanto vêm vazios na fonte do /historico. KPIs de prestadores e valor funcionam; associação/CNPJ ficam zerados. **Phase 2:** adicionar colunas no model `Disparo` ao gravar disparo (já temos no atendimento).
 - **Drill-down é interno ao painel**: por enquanto não propaga pra tabela principal (busca/filtros já existentes continuam separados). `onDrillDown` é exposto pra integração futura.
 - **Performance**: 192 atendimentos / 500 disparos é nada. Tudo em `useMemo` client-side.
+
+---
+
+## 11. Auto-conclusão de conversa (PUT /v1/session/{id}/complete + janela de 70s)
+
+Após cada disparo OK que retorne `sessionId`, agendamos um **PUT `/chat/v1/session/{id}/complete`** depois de `ATOMOS_AUTOCOMPLETE_DELAY_MS` (default **70 000 ms / 70 s**). A janela existe para que o prestador tenha chance de responder antes de fecharmos a sessão. Durante esse intervalo a conversa fica aberta normalmente.
+
+### Detecção indireta de resposta
+
+A Atomos **não expõe endpoint público de "listar mensagens da conversa"**. Para saber se o prestador respondeu durante a janela, usamos o response do próprio PUT complete: ele devolve um `PublicSessionDTO` com `lastMessageIn` (timestamp da última mensagem recebida do contato). Se `lastMessageIn > Disparo.createdAt`, gravamos `Disparo.respostaDetectada = true`.
+
+Combinado com `reactivateOnNewMessage: true`, qualquer resposta posterior reabre a conversa naturalmente — então fechar agressivamente ao final dos 70s não atrapalha o atendimento real.
+
+### Endpoints (api.helena.run/chat — proxy via api.chat.atomos.tech)
+
+| Método | Path | O que faz |
+|--------|------|-----------|
+| GET | `/chat/v1/message/{id}/status` | Status de uma mensagem (também devolve `sessionId`). Já existia. |
+| PUT | `/chat/v1/session/{id}/complete` | Encerra a conversa. Body `{ reactivateOnNewMessage, stopBotInExecution }`. |
+
+### Implementação
+
+- **`src/atomos/client.ts::completeSession()`** — wrapper PUT que retorna `CompleteSessionResult`.
+- **`lib/autocomplete.ts`** — singleton in-process com `Map<disparoId, NodeJS.Timeout>` em `globalThis`. Funções:
+  - `agendarAutoConclusao(disparoId, sessionId)` — grava `concluirEm = now + delay` em `Disparo` e registra setTimeout. Idempotente (cancela timer anterior se existir).
+  - `bootRecovery()` — varre `Disparo where concluirEm IS NOT NULL AND concluidoEm IS NULL`. Para os com `concluirEm <= now`, dispara complete imediatamente; senão reagenda. Chamado pelo `instrumentation-node.ts` no boot do servidor.
+  - Detecção de resposta via `lastMessageIn > Disparo.createdAt` no response.
+- **Wired em**:
+  - `app/api/disparos/stream/route.ts` (SSE) — após cada `prisma.disparo.create` OK com sessionId.
+  - `lib/disparo-runner.ts` (cron embedded) — idem.
+  - `src/runner.ts` (CLI) — só loga aviso. CLI não tem persistência em `Disparo`, então não é compatível com o worker.
+- **`instrumentation-node.ts`** — chama `bootAutocompleteRecovery()` junto com `aplicarAgendamento()` no boot.
+
+### Schema novo em `Disparo` (migração `20260430112622_add_autocomplete_fields`)
+
+| Coluna | Tipo | Significado |
+|--------|------|-------------|
+| `concluirEm` | DateTime? | Quando o complete deve rodar (`createdAt + delay`). null = não agendado (envio falhou ou autocomplete desligado). |
+| `concluidoEm` | DateTime? | Quando o complete foi efetivamente executado. null = pendente. |
+| `concluidoOk` | Boolean? | Resultado do PUT (HTTP 2xx vs erro). |
+| `concluidoHttpStatus` | Int? | HTTP status retornado. |
+| `concluidoResponse` | String? | JSON do `PublicSessionDTO` retornado. |
+| `respostaDetectada` | Boolean? | true se `lastMessageIn > createdAt`. null = não checado (PUT falhou ou sem sessionId). |
+
+Index `(concluirEm, concluidoEm)` pra acelerar o boot recovery.
+
+### Config (.env)
+
+```
+ATOMOS_AUTOCOMPLETE_ENABLED=true
+ATOMOS_AUTOCOMPLETE_DELAY_MS=70000
+ATOMOS_AUTOCOMPLETE_REACTIVATE=true   # PublicReqCompleteSessionDTO.reactivateOnNewMessage
+ATOMOS_AUTOCOMPLETE_STOP_BOT=false    # PublicReqCompleteSessionDTO.stopBotInExecution
+```
+
+### UI
+
+- `DisparoDetailDrawer` ganhou seção **"Auto-conclusão da conversa"** com status (aguardando/concluída/falhou), HTTP code, e badge verde "Prestador respondeu" quando `respostaDetectada=true`. Em `bottom` mostra o JSON do response do complete.
+
+### Caveats
+
+- **Single-instance:** o worker é in-memory. Em deploy multi-instância, cada réplica reagendaria a mesma task → complete duplicado. OK pro deploy atual; se escalar, migrar pra fila externa (Redis/PG advisory lock).
+- **Janela vs gate:** o gate de teste (15s, ver §8) e a janela de auto-complete (70s) não interagem — gate roda antes do loop, autocomplete enfileira por trás.
+- **Detecção indireta tem ponto cego:** se prestador responder em < 1s antes do PUT, lastMessageIn pode ser igual ao createdAt e o `>` retorna false. Aceitável — risco baixo.
+
+---
+
+## 12. LGPD + hardening (revisão 2026-04-30)
+
+Pacote de revisão técnica aplicado em 2026-04-30. **Política**: aplicar daqui pra frente; histórico anterior é purgado naturalmente pela retenção. Não há backfill.
+
+### Mascaramento de PII
+
+- `lib/pii.ts` (novo) — `mascararIp`, `hashTelefone`, `redactTelefone`, `redactPayload`. Aplica `hash:<12hex>:••••<últimos4>` em qualquer telefone (10–15 dígitos contíguos) dentro de objetos arbitrários.
+- `src/logger.ts` — `redact` adicionado em `pino` cobrindo `*.token`, `*.Authorization`, `*.to`, `*.from`, `*.phone`, `*.phoneNumber`, `*.telefone`, `*.destinoReal`, `*.destinoEfetivo`, `*.sentPayload.to`.
+- `src/atomos/client.ts:62` — log de erro substitui `to`/`sentPayload` por `mascararTelefoneShort(to)` (ainda redactado depois pelo pino).
+- `lib/audit.ts:37` — `mascararIp(getClientIp(req))` antes de gravar em `AuditLog.ip` (zera últimos 2 octetos IPv4 / 80 bits IPv6).
+- `lib/disparo-runner.ts`, `app/api/run/route.ts`, `app/api/disparos/stream/route.ts`, `lib/autocomplete.ts` — `redactPayload(...)` em `requestPayload` / `responseBody` / `rawAtendimento` / `statusCheckBody` / `concluidoResponse` antes de `prisma.disparo.create/update`.
+
+### Retenção + cron de purga
+
+- `lib/purga.ts` (novo) — `purgarLgpd({ dryRun })`. Constantes:
+  - `RETENCAO_DISPAROS_DIAS = 180`
+  - `RETENCAO_AUDIT_DIAS = 365`
+- Cron embedded `0 3 * * *` (03:00 hora do servidor) registrado por `lib/scheduler.ts::aplicarPurga()`. Singleton via `globalThis.__nacionalPurgaTask`. Boot via `instrumentation-node.ts`.
+- `Disparo.deleteMany` cascateia `StatusEvento` (já tem `onDelete: Cascade`).
+
+### Endpoints art. 18 LGPD (todos com `requireUser` + rate-limit 5/min)
+
+| Rota | Método | Função |
+|------|--------|--------|
+| `/api/lgpd/inventario` | GET | Estrutura estática do tratamento (controlador, finalidade, base legal, retenção, terceiros, direitos). |
+| `/api/lgpd/acesso?tel=X` | GET | Lista disparos onde telefone foi destinatário (art. 18, II). |
+| `/api/lgpd/anonimizar` | POST | Substitui `destinoReal`/`destinoEfetivo` por `ANON:<hash>`, zera `prestador` e payloads JSON. Mantém id+timestamps (auditoria). Suporta `?dryRun=true`. |
+
+### Rate-limit + sanitizeError
+
+- `lib/rate-limit.ts` (novo) — token bucket in-memory por `userEmail:route`. Buckets:
+  - `/api/run`: 3/min
+  - `/api/disparos/stream`: 10/min
+  - `/api/historico/refresh`: 10/min
+  - `/api/agendamento/run-now`: 3/min
+  - `/api/lgpd`: 5/min
+- 429 retorna `Retry-After` no header.
+- `lib/errors.ts` (novo) — `sanitizeError(e, status, fallback)`. Em prod retorna mensagem genérica; em dev mantém `e.message`. Logger sempre captura integral.
+- Aplicado em `/api/run`, `/api/disparos/stream`, `/api/historico/refresh`, `/api/agendamento/run-now` e nos 3 endpoints LGPD.
+
+### EDITABLE_KEYS / config endurecida
+
+- `app/api/config/route.ts::BLOCKED_KEYS` (novo) — bloqueia edição via UI das chaves de infra: `DATABASE_URL`, `DIRECT_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ALLOWED_EMAILS`, `NODE_ENV`. Defesa em profundidade — `Zod.strict()` já rejeitava chaves não listadas.
+
+### Pendências / dependem de credenciais externas
+
+- **Fase 1 (Postgres/Neon)** — schema continua em SQLite. Migração quando `DATABASE_URL`/`DIRECT_URL` estiverem disponíveis. Após migração: retipar 7 colunas `String?` → `Json?` e trocar `metadata.contains` por `path/equals`.
+- **Fase 2 (NextAuth Google)** — `lib/auth.ts` continua stub (dev → `dev@local`, prod → `null`). Quando credenciais Google estiverem disponíveis: implementar `lib/auth-config.ts`, `app/api/auth/[...nextauth]`, `middleware.ts`, `app/login`. Reescrever `getCurrentUser` mantendo assinatura.
+- **Fase 5 (Vitest)** — suite de smoke/integração. Já implementada parcialmente nos blocos puros (pii, scheduler, rate-limit); resto depende de auth + PG.
+
+### Dívidas anotadas (fora deste escopo)
+
+- **CSP nonce** — `script-src 'unsafe-inline'` continua. Migrar requer middleware + ajuste em `app/layout.tsx`.
+- **Multi-instance** — cron + autocomplete worker são in-process. Migrar pra fila externa (BullMQ/Redis) quando escalar.
+- **Timezone do cron** — `node-cron` usa TZ do processo. Setar `TZ=America/Sao_Paulo` no host de produção.
+- **Backfill de PII em dados pré-2026-04-30** — purga (180d) limpa naturalmente até ~Q4 2026. Para limpar antes, rodar `POST /api/lgpd/anonimizar` por telefone ou query manual.
 
 ---
 

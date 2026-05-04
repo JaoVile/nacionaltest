@@ -6,6 +6,9 @@ import { carregarPorIds } from '../../../../lib/atendimentos';
 import { prisma } from '../../../../lib/db';
 import { requireUser } from '../../../../lib/auth';
 import { writeAudit } from '../../../../lib/audit';
+import { agendarAutoConclusao } from '../../../../lib/autocomplete';
+import { redactPayload } from '../../../../lib/pii';
+import { checkRateLimit } from '../../../../lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -47,6 +50,9 @@ function safeJson(v: unknown): string | null {
 export async function POST(req: NextRequest) {
   const authed = await requireUser(req);
   if (authed instanceof NextResponse) return authed;
+
+  const rl = checkRateLimit(authed.email, '/api/disparos/stream');
+  if (!rl.ok) return rl.response!;
 
   const cfg = loadConfig();
   const encoder = new TextEncoder();
@@ -184,11 +190,12 @@ export async function POST(req: NextRequest) {
             vModelo: values.modelo,
             vValor: values.valor,
             vData: values.data,
-            requestPayload:  safeJson(send.request),
-            responseBody:    safeJson(send.response),
+            // LGPD: redact telefones em payloads salvos. Ver lib/pii.ts.
+            requestPayload:  safeJson(redactPayload(send.request)),
+            responseBody:    safeJson(redactPayload(send.response)),
             httpStatus:      send.status,
-            statusCheckBody: safeJson(statusCheck),
-            rawAtendimento:  safeJson((m as { raw?: unknown }).raw ?? null),
+            statusCheckBody: safeJson(redactPayload(statusCheck)),
+            rawAtendimento:  safeJson(redactPayload((m as { raw?: unknown }).raw ?? null)),
             elapsedMs:       send.elapsedMs,
             origem: opts.origem,
             eventos: {
@@ -199,6 +206,13 @@ export async function POST(req: NextRequest) {
 
         const elapsedMs = Date.now() - tStart;
         const ok = send.ok && statusFinal !== 'FAILED';
+
+        // Agenda auto-conclusão da conversa (PUT /v1/session/{id}/complete)
+        // após o delay configurado. Worker em memória + recovery no boot
+        // garantem execução mesmo após restart. Ver lib/autocomplete.ts.
+        if (ok && sessionId) {
+          void agendarAutoConclusao(disparo.id, sessionId);
+        }
 
         emit(controller, {
           type: opts.origem === 'TEST' ? 'test-result' : 'result',
@@ -283,6 +297,8 @@ export async function POST(req: NextRequest) {
 
       // --- LOOP PRINCIPAL ---
       let canceladoNoLoop = false;
+      let okLoop = 0;
+      let queuedLoop = 0;
       for (let idx = 0; idx < todosParaDisparar.length; idx++) {
         if (req.signal.aborted) {
           canceladoNoLoop = true;
@@ -297,6 +313,10 @@ export async function POST(req: NextRequest) {
         if (!r || r.aborted || req.signal.aborted) {
           canceladoNoLoop = true;
           break;
+        }
+        if (r.ok) {
+          if (r.statusRegistrado === 'QUEUED') queuedLoop++;
+          else okLoop++;
         }
         if (idx < todosParaDisparar.length - 1) {
           await sleep(cfg.SEND_DELAY_MS);
@@ -313,21 +333,14 @@ export async function POST(req: NextRequest) {
         return;
       }
 
-      const resultados = await prisma.disparo.findMany({
-        where: { createdAt: { gte: new Date(Date.now() - 5 * 60_000) }, origem: 'UI' },
-        select: { ultimoStatus: true },
-      });
-      const enviadosOk = resultados.filter((r) =>
-        ['DELIVERED', 'READ', 'SENT'].includes(r.ultimoStatus),
-      ).length;
-      const queued = resultados.filter((r) => r.ultimoStatus === 'QUEUED').length;
+      const falhasLoop = total - okLoop - queuedLoop;
 
       emit(controller, {
         type: 'done',
         total,
-        enviadosOk,
-        queued,
-        falhas: total - enviadosOk - queued,
+        enviadosOk: okLoop,
+        queued: queuedLoop,
+        falhas: falhasLoop,
         testMode: cfg.TEST_MODE,
         destinoTeste: cfg.TEST_MODE ? cfg.TEST_PHONE_NUMBER : null,
       });
@@ -339,9 +352,9 @@ export async function POST(req: NextRequest) {
         payload: parsed,
         metadata: {
           total,
-          enviadosOk,
-          queued,
-          falhas: total - enviadosOk - queued,
+          enviadosOk: okLoop,
+          queued: queuedLoop,
+          falhas: falhasLoop,
           testMode: cfg.TEST_MODE,
           gate: devePassarPorGate,
         },

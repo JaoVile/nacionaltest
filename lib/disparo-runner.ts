@@ -3,6 +3,8 @@ import { logger } from '../src/logger';
 import { sendTemplate, getMessageStatus } from '../src/atomos/client';
 import { carregarAtendimentos, type AtendimentoView } from './atendimentos';
 import { prisma } from './db';
+import { agendarAutoConclusao } from './autocomplete';
+import { redactPayload } from './pii';
 
 export interface ExecutarAgendamentoOpts {
   modo: 'massa' | 'selecionados';
@@ -115,8 +117,9 @@ export async function executarAgendamento(
 
     const statusRegistrado = statusFinal ?? (send.ok ? 'QUEUED' : 'ERROR');
 
+    let disparoCriadoId: string | null = null;
     try {
-      await prisma.disparo.create({
+      const created = await prisma.disparo.create({
         data: {
           atendimentoId:      m.id,
           placa:              m.placa,
@@ -138,22 +141,30 @@ export async function executarAgendamento(
           vModelo:            values.modelo,
           vValor:             values.valor,
           vData:              values.data,
-          requestPayload:     safeJson(send.request),
-          responseBody:       safeJson(send.response),
+          // LGPD: redact telefones em payloads salvos. Ver lib/pii.ts.
+          requestPayload:     safeJson(redactPayload(send.request)),
+          responseBody:       safeJson(redactPayload(send.response)),
           httpStatus:         send.status,
-          statusCheckBody:    safeJson(statusCheck),
-          rawAtendimento:     safeJson(m.raw),
+          statusCheckBody:    safeJson(redactPayload(statusCheck)),
+          rawAtendimento:     safeJson(redactPayload(m.raw)),
           elapsedMs:          send.elapsedMs,
           origem,
           eventos: { create: { status: statusRegistrado, failureReason } },
         },
       });
+      disparoCriadoId = created.id;
     } catch (e) {
       logger.error({ err: (e as Error).message, id: m.id }, 'Falha ao gravar Disparo no banco');
     }
 
-    if (send.ok && statusFinal !== 'FAILED') resumo.enviadosOk++;
+    const okEnvio = send.ok && statusFinal !== 'FAILED';
+    if (okEnvio) resumo.enviadosOk++;
     else resumo.falhas++;
+
+    // Agenda PUT complete da conversa após delay (ver lib/autocomplete.ts).
+    if (okEnvio && disparoCriadoId && sessionId) {
+      void agendarAutoConclusao(disparoCriadoId, sessionId);
+    }
 
     await sleep(cfg.SEND_DELAY_MS);
   }
